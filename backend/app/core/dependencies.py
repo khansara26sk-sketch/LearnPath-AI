@@ -6,7 +6,10 @@ from app.services.groq_service import GroqService
 from app.services.quiz_service import QuizService
 from app.services.roadmap_service import RoadmapService
 from app.services.pdf_service import PDFService
-
+from app.services.dashboard_service import DashboardService
+@lru_cache
+def get_dashboard_service() -> DashboardService:
+    return DashboardService()
 @lru_cache
 def get_pdf_service() -> PDFService:
     return PDFService(get_groq_service())

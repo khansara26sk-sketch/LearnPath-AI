@@ -14,7 +14,7 @@ from app.database.connection import (
     close_mongo_connection,
     connect_to_mongo,
 )
-from app.routes import chat, quiz, roadmap, pdf_tools
+from app.routes import chat, quiz, roadmap, pdf_tools, dashboard
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(roadmap.router, prefix=settings.api_prefix)
     app.include_router(chat.router, prefix=settings.api_prefix)
     app.include_router(pdf_tools.router, prefix=settings.api_prefix)
-
+    app.include_router(dashboard.router, prefix=settings.api_prefix)
     return app
 
 
