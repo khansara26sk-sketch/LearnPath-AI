@@ -1,0 +1,119 @@
+{
+  "health": {
+    "GET /health": {
+      "status": "healthy",
+      "app": "LearnPath AI",
+      "environment": "development",
+      "ai_mode": "mock"
+    }
+  },
+  "submit_quiz": {
+    "POST /api/v1/submit-quiz": {
+      "request": {
+        "user_id": "learner_42",
+        "subject": "Mathematics",
+        "topic": "Quadratic Equations",
+        "time_taken_seconds": 480,
+        "answers": [
+          { "question_id": "q1", "selected_option": "b", "is_correct": true },
+          { "question_id": "q2", "selected_option": "a", "is_correct": false },
+          { "question_id": "q3", "selected_option": "c", "is_correct": false },
+          { "question_id": "q4", "selected_option": "d", "is_correct": true }
+        ]
+      },
+      "response": {
+        "success": true,
+        "submission_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "user_id": "learner_42",
+        "subject": "Mathematics",
+        "topic": "Quadratic Equations",
+        "analysis": {
+          "overall_score": 50.0,
+          "total_questions": 4,
+          "correct_answers": 2,
+          "weak_topics": [
+            {
+              "topic": "Quadratic Equations",
+              "score_percentage": 50.0,
+              "severity": "medium",
+              "recommendation": "Review Quadratic Equations fundamentals and practice 10 targeted questions daily."
+            },
+            {
+              "topic": "Mathematics — problem solving",
+              "score_percentage": 35.0,
+              "severity": "medium",
+              "recommendation": "Work through step-by-step solved examples before timed quizzes."
+            }
+          ],
+          "strengths": ["Consistent accuracy on core concepts"],
+          "summary": "You scored 50.0% on Mathematics (Quadratic Equations). Focus on Quadratic Equations with guided practice and spaced repetition.",
+          "ai_mode": "mock"
+        },
+        "created_at": "2026-05-28T10:30:00Z"
+      }
+    }
+  },
+  "generate_roadmap": {
+    "POST /api/v1/generate-roadmap": {
+      "request": {
+        "user_id": "learner_42",
+        "subject": "Mathematics",
+        "weak_topics": ["Quadratic Equations", "Factoring"],
+        "learning_goal": "Score above 80% in the midterm",
+        "duration_weeks": 4
+      },
+      "response": {
+        "success": true,
+        "user_id": "learner_42",
+        "subject": "Mathematics",
+        "roadmap_id": "f9e8d7c6-b5a4-3210-fedc-ba9876543210",
+        "title": "Personalized Mathematics Learning Path",
+        "milestones": [
+          {
+            "week": 1,
+            "title": "Week 1: Build mastery",
+            "topics": ["Quadratic Equations"],
+            "resources": [
+              "Video lessons — Mathematics",
+              "Practice worksheet (15 questions)",
+              "Quick recap flashcards"
+            ],
+            "estimated_hours": 6
+          }
+        ],
+        "focus_areas": ["Quadratic Equations", "Factoring"],
+        "ai_mode": "mock"
+      }
+    }
+  },
+  "chat": {
+    "POST /api/v1/chat": {
+      "request": {
+        "user_id": "learner_42",
+        "message": "How do I solve x^2 + 5x + 6 = 0 by factoring?",
+        "subject": "Mathematics",
+        "context_topics": ["Quadratic Equations"],
+        "conversation_id": null
+      },
+      "response": {
+        "success": true,
+        "conversation_id": "c1d2e3f4-a5b6-7890-cdef-123456789abc",
+        "user_id": "learner_42",
+        "reply": "Great question about Mathematics! Here's a concise explanation: break the problem into smaller steps, identify what you already know, then apply the core formula or rule.",
+        "suggested_followups": [
+          "Can you show me a worked example?",
+          "What are common mistakes to avoid?",
+          "Give me a practice question on this topic."
+        ],
+        "ai_mode": "mock",
+        "timestamp": "2026-05-28T10:35:00Z"
+      }
+    }
+  },
+  "error": {
+    "example": {
+      "success": false,
+      "error": "Failed to store quiz submission: connection refused"
+    }
+  }
+}

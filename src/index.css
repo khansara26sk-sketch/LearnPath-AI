@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.6%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.6%;
+  --primary: 262 80% 50%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 186 100% 50%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 262 80% 50%;
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 217.2 32.6% 17.5%;
+  --card-foreground: 210 40% 98%;
+  --primary: 262 80% 50%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217 91% 60%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.3% 65.1%;
+  --accent: 186 100% 50%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 262 80% 50%;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
+
+* {
+  @apply border-border;
+}
+
+button {
+  @apply transition-all duration-200;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground rounded-full hover:bg-foreground;
+}
+
+/* Glass morphism effect */
+.glass-effect {
+  @apply backdrop-blur-lg bg-white/10 dark:bg-black/20 border border-white/20 dark:border-white/10;
+}
+
+.glass-effect-strong {
+  @apply backdrop-blur-xl bg-white/20 dark:bg-black/40 border border-white/30 dark:border-white/20;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent;
+}
+
+/* Glow effect */
+.glow-sm {
+  @apply shadow-[0_0_15px_rgba(99,102,241,0.3)];
+}
+
+.glow-md {
+  @apply shadow-[0_0_25px_rgba(99,102,241,0.4)];
+}
+
+.glow-lg {
+  @apply shadow-[0_0_40px_rgba(99,102,241,0.5)];
+}
+
+/* Hover lift effect */
+.hover-lift {
+  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+}
+
+/* Animation utilities */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,.1), transparent);
+  background-size: 1000px 100%;
+}
