@@ -9,9 +9,8 @@ import {
   Camera,
   FileText,
 } from 'lucide-react'
-
+import { useAuth } from '../context/AuthContext'
 const API_BASE = 'http://127.0.0.1:8000/api/v1'
-const USER_ID = 'test123'
 
 const initialSuggestedPrompts = [
   'Explain quadratic equations step by step',
@@ -28,6 +27,12 @@ const welcomeMessage = {
 }
 
 export default function AITutorPage() {
+  const { user } = useAuth()
+
+const userId =
+  user?.uid ||
+  user?.email ||
+  'guest'
   const [messages, setMessages] = useState([welcomeMessage])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -46,7 +51,7 @@ export default function AITutorPage() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/chat/history/${USER_ID}`)
+      const res = await fetch(`${API_BASE}/chat/history/${userId}`)
       const data = await res.json()
       setChats(data)
     } catch (error) {
@@ -195,7 +200,7 @@ export default function AITutorPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            user_id: USER_ID,
+            user_id: userId,
             message: messageText,
             subject: 'General',
             context_topics: [],
