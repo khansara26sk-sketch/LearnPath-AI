@@ -8,6 +8,7 @@ import {
   Clock,
   Loader2,
   Sparkles,
+  GraduationCap
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -24,6 +25,7 @@ export default function QuizPage() {
   const [topic, setTopic] = useState('')
   const [difficulty, setDifficulty] = useState('Medium')
   const [questionCount, setQuestionCount] = useState(10)
+  const [studentClass, setStudentClass] = useState('College / University') // Naya state class ke liye
   const [quizData, setQuizData] = useState([])
   const [quizTitle, setQuizTitle] = useState(generatedQuiz?.title || '')
   const [loadingQuiz, setLoadingQuiz] = useState(false)
@@ -112,6 +114,7 @@ export default function QuizPage() {
         },
         body: JSON.stringify({
           user_id: userId,
+          class_name: studentClass, // Naya variable API mein bheja
           topic,
           difficulty,
           count: Number(questionCount),
@@ -241,6 +244,26 @@ export default function QuizPage() {
           </div>
 
           <div className="space-y-5">
+            {/* Naya Class/Education Level Dropdown */}
+            <div>
+              <label className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-primary" />
+                Education Level / Class
+              </label>
+              <select
+                value={studentClass}
+                onChange={(e) => setStudentClass(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
+              >
+                <option value="Class 1-5">Class 1 to 5</option>
+                <option value="Class 6-8">Class 6 to 8</option>
+                <option value="Class 9-10">Class 9 to 10</option>
+                <option value="Class 11-12">Class 11 to 12</option>
+                <option value="College / University">College / University</option>
+                <option value="Professional / Advanced">Professional / Advanced</option>
+              </select>
+            </div>
+
             <div>
               <label className="text-sm font-semibold mb-2 block">Topic</label>
               <input
@@ -251,37 +274,39 @@ export default function QuizPage() {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-semibold mb-2 block">Difficulty</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
-              >
-                <option>Easy</option>
-                <option>Medium</option>
-                <option>Hard</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Difficulty</label>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
+                >
+                  <option>Easy</option>
+                  <option>Medium</option>
+                  <option>Hard</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="text-sm font-semibold mb-2 block">Number of Questions</label>
-              <select
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-                className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
-              >
-                <option value={5}>5 Questions</option>
-                <option value={10}>10 Questions</option>
-                <option value={15}>15 Questions</option>
-                <option value={20}>20 Questions</option>
-              </select>
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Questions</label>
+                <select
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
+                >
+                  <option value={5}>5 Questions</option>
+                  <option value={10}>10 Questions</option>
+                  <option value={15}>15 Questions</option>
+                  <option value={20}>20 Questions</option>
+                </select>
+              </div>
             </div>
 
             <button
               onClick={generateQuiz}
               disabled={loadingQuiz}
-              className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loadingQuiz ? (
                 <>

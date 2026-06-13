@@ -36,7 +36,8 @@ async def generate_quiz(
     {
       "topic": "Python",
       "difficulty": "Medium",
-      "count": 10
+      "count": 10,
+      "class_name": "College / University"
     }
     """
 
@@ -52,11 +53,16 @@ async def generate_quiz(
         "difficulty",
         "Medium",
     )
+    
+    # Naya line: Frontend se class_name nikalna (default to College)
+    class_name = payload.get("class_name", "College / University")
 
+    # Naya line: class_name ko service mein pass karna
     return await service.generate_topic_quiz(
         topic=topic,
         count=count,
         difficulty=difficulty,
+        class_name=class_name,
     )
 
 

@@ -61,12 +61,13 @@ class QuizService:
         }
 
     async def generate_topic_quiz(
-    self,
-    topic: str,
-    count: int = 15,
-    goal: str | None = None,
-    difficulty: str = "Medium",
-) -> dict:
+        self,
+        topic: str,
+        count: int = 15,
+        goal: str | None = None,
+        difficulty: str = "Medium",
+        class_name: str = "College / University",  # NAYA PARAMETER ADD KIYA
+    ) -> dict:
         if not topic:
             topic = "General Topic"
 
@@ -77,10 +78,12 @@ class QuizService:
         if groq is None:
             return self._mock_quiz(topic, count)
 
+        # PROMPT MEIN CLASS_NAME ADD KIYA TAARIKE SE
         prompt = f"""
 Generate {count} multiple choice quiz questions.
 
 Topic: {topic}
+Education Level / Class: {class_name}
 Difficulty: {difficulty}
 Goal/Exam Context: {goal or "General learning"}
 
@@ -103,7 +106,8 @@ Rules:
 - Generate exactly {count} questions.
 - Each question must have exactly 4 options.
 - correct must be index number: 0, 1, 2, or 3.
-- Questions should match the topic, goal, and difficulty level: {difficulty}.
+- Questions MUST match the topic, goal, education level ({class_name}), and difficulty level ({difficulty}).
+- If education level is Class 1-5 or 6-8, keep language simple and age-appropriate.
 - For NEET/JEE/CUET/competitive exams, make questions exam-style.
 - For school subjects, make questions student-friendly.
 - For coding skills, make concept + practical questions.
@@ -169,12 +173,14 @@ Rules:
         topic = payload.get("topic") or "Roadmap Topic"
         goal = payload.get("goal") or "Learning Roadmap"
         count = payload.get("count", 15)
+        class_name = payload.get("class_name", "College / University") # Roadmap quiz me bhi class forward kardi
 
         quiz = await self.generate_topic_quiz(
             topic=topic,
             count=count,
             goal=goal,
             difficulty=payload.get("difficulty", "Medium"),
+            class_name=class_name,
         )
 
         quiz["title"] = f"Week {week}: {topic} Quiz" if week else f"{topic} Quiz"
