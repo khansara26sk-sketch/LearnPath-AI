@@ -177,7 +177,7 @@ const userId =
       if (selectedFile) {
         const formData = new FormData()
 
-        formData.append('user_id', USER_ID)
+        formData.append('user_id', userId)
         formData.append(
           'message',
           messageText || 'Analyze this uploaded file'

@@ -30,20 +30,33 @@ async def generate_quiz(
     service: QuizService = Depends(get_quiz_service),
 ):
     """
-    Generate quiz from topic.
+    Generate AI Quiz.
 
     Example:
     {
-      "topic": "Genetics",
-      "count": 15
+      "topic": "Python",
+      "difficulty": "Medium",
+      "count": 10
     }
     """
+
     topic = payload.get("topic")
-    count = payload.get("count", 15)
+
+    count = (
+        payload.get("count")
+        or payload.get("question_count")
+        or 10
+    )
+
+    difficulty = payload.get(
+        "difficulty",
+        "Medium",
+    )
 
     return await service.generate_topic_quiz(
         topic=topic,
         count=count,
+        difficulty=difficulty,
     )
 
 

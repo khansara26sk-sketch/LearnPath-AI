@@ -59,3 +59,18 @@ class RoadmapResponse(BaseModel):
     level: Optional[str] = None
     purpose: Optional[str] = None
     weekly_hours: Optional[int] = None
+class RoadmapProgressWeek(BaseModel):
+    week: int
+    status: str = "locked"  # completed | in-progress | locked
+
+
+class RoadmapProgressResponse(BaseModel):
+    success: bool = True
+    user_id: str
+    roadmap_id: str
+    progress: List[RoadmapProgressWeek]
+
+
+class SavedRoadmapResponse(BaseModel):
+    success: bool = True
+    roadmaps: List[RoadmapResponse]

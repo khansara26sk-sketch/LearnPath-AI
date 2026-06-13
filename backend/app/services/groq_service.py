@@ -1,4 +1,6 @@
 import base64
+import json
+import re
 
 from groq import Groq
 
@@ -18,7 +20,6 @@ class GroqService:
         prompt: str,
         system_instruction: str = None,
     ) -> str:
-
         messages = []
 
         if system_instruction:
@@ -45,6 +46,33 @@ class GroqService:
 
         return response.choices[0].message.content
 
+    async def generate_json(
+        self,
+        prompt: str,
+        system_instruction: str = None,
+    ) -> dict:
+        response = await self.generate_text(
+            prompt=prompt,
+            system_instruction=system_instruction,
+        )
+
+        cleaned = response.strip()
+        cleaned = re.sub(r"```json", "", cleaned)
+        cleaned = re.sub(r"```", "", cleaned).strip()
+
+        try:
+            return json.loads(cleaned)
+        except Exception:
+            match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+
+            if match:
+                try:
+                    return json.loads(match.group(0))
+                except Exception:
+                    return {}
+
+            return {}
+
     async def generate_vision_text(
         self,
         prompt: str,
@@ -52,7 +80,6 @@ class GroqService:
         mime_type: str,
         system_instruction: str = None,
     ) -> str:
-
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
         image_data_url = (
