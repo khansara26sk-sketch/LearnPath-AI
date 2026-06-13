@@ -15,15 +15,6 @@ async def generate_roadmap(
     payload: RoadmapRequest,
     service: RoadmapService = Depends(get_roadmap_service),
 ) -> RoadmapResponse:
-    """
-    Generate a personalized learning roadmap.
-
-    Supports:
-    - School subjects
-    - Competitive exams
-    - College skills
-    - Career goals
-    """
     return await service.generate_roadmap(payload)
 
 
@@ -32,30 +23,38 @@ async def generate_universal_roadmap(
     payload: RoadmapRequest,
     service: RoadmapService = Depends(get_roadmap_service),
 ) -> RoadmapResponse:
-    """
-    Generate a universal roadmap for any goal:
-    NEET, JEE, Class 10 Maths, Python, DSA, Data Engineer, etc.
-    """
     return await service.generate_roadmap(payload)
+
+
+@router.get("/user/{user_id}")
+async def get_user_roadmaps(
+    user_id: str,
+    service: RoadmapService = Depends(get_roadmap_service),
+):
+    return await service.get_user_roadmaps(user_id)
+
+
+@router.get("/saved/{user_id}/{roadmap_id}")
+async def get_saved_roadmap(
+    user_id: str,
+    roadmap_id: str,
+    service: RoadmapService = Depends(get_roadmap_service),
+):
+    return await service.get_saved_roadmap(
+        user_id=user_id,
+        roadmap_id=roadmap_id,
+    )
 
 
 @router.post("/progress/init")
 async def initialize_roadmap_progress(
-    user_id: str,
-    roadmap_id: str,
-    total_weeks: int,
+    payload: dict,
     service: RoadmapService = Depends(get_roadmap_service),
 ):
-    """
-    Initialize roadmap progress in MongoDB.
-
-    Week 1 starts as in-progress.
-    Remaining weeks are locked.
-    """
     return await service.initialize_progress(
-        user_id=user_id,
-        roadmap_id=roadmap_id,
-        total_weeks=total_weeks,
+        user_id=payload.get("user_id"),
+        roadmap_id=payload.get("roadmap_id"),
+        total_weeks=payload.get("total_weeks", 1),
     )
 
 
@@ -65,12 +64,21 @@ async def get_roadmap_progress(
     roadmap_id: str,
     service: RoadmapService = Depends(get_roadmap_service),
 ):
-    """
-    Get saved roadmap progress.
-    """
     return await service.get_progress(
         user_id=user_id,
         roadmap_id=roadmap_id,
+    )
+
+
+@router.post("/progress/complete-week")
+async def complete_roadmap_week(
+    payload: dict,
+    service: RoadmapService = Depends(get_roadmap_service),
+):
+    return await service.complete_week(
+        user_id=payload.get("user_id"),
+        roadmap_id=payload.get("roadmap_id"),
+        week=int(payload.get("week")),
     )
 
 
@@ -81,12 +89,6 @@ async def update_roadmap_week_progress(
     week: int,
     service: RoadmapService = Depends(get_roadmap_service),
 ):
-    """
-    Mark a week as completed.
-
-    Example:
-    Week 1 completed -> Week 2 becomes in-progress.
-    """
     return await service.complete_week(
         user_id=user_id,
         roadmap_id=roadmap_id,

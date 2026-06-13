@@ -61,11 +61,12 @@ class QuizService:
         }
 
     async def generate_topic_quiz(
-        self,
-        topic: str,
-        count: int = 15,
-        goal: str | None = None,
-    ) -> dict:
+    self,
+    topic: str,
+    count: int = 15,
+    goal: str | None = None,
+    difficulty: str = "Medium",
+) -> dict:
         if not topic:
             topic = "General Topic"
 
@@ -80,6 +81,7 @@ class QuizService:
 Generate {count} multiple choice quiz questions.
 
 Topic: {topic}
+Difficulty: {difficulty}
 Goal/Exam Context: {goal or "General learning"}
 
 Return ONLY valid JSON in this exact format:
@@ -101,7 +103,7 @@ Rules:
 - Generate exactly {count} questions.
 - Each question must have exactly 4 options.
 - correct must be index number: 0, 1, 2, or 3.
-- Questions should match the topic and goal.
+- Questions should match the topic, goal, and difficulty level: {difficulty}.
 - For NEET/JEE/CUET/competitive exams, make questions exam-style.
 - For school subjects, make questions student-friendly.
 - For coding skills, make concept + practical questions.
@@ -172,6 +174,7 @@ Rules:
             topic=topic,
             count=count,
             goal=goal,
+            difficulty=payload.get("difficulty", "Medium"),
         )
 
         quiz["title"] = f"Week {week}: {topic} Quiz" if week else f"{topic} Quiz"

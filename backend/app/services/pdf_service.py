@@ -7,9 +7,14 @@ from pypdf import PdfReader
 from app.services.groq_service import GroqService
 
 
+from app.database.connection import get_database
+from datetime import datetime, timezone
+from uuid import uuid4
+
 class PDFService:
     def __init__(self, groq: GroqService):
         self.groq = groq
+        self.collection_name = "pdf_history"
 
     def extract_pdf_text(self, pdf_bytes: bytes) -> str:
         try:

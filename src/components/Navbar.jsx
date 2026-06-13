@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext'
 export default function Navbar({ isDarkMode, toggleTheme }) {
   const [isOpen, setIsOpen] = useState(false)
   const { user, logout } = useAuth()
+  console.log('Firebase User:', user)
   const navigate = useNavigate()
 
   const navItems = [

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -14,16 +14,14 @@ import {
   Lock,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+
 const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
 export default function RoadmapPage() {
-  const { user } = useAuth()
-
-const userId =
-  user?.uid ||
-  user?.email ||
-  'guest'
+  const { user, authLoading } = useAuth()
   const navigate = useNavigate()
+
+  const userId = user?.uid || user?.email || 'guest'
 
   const [quizLoadingWeek, setQuizLoadingWeek] = useState(null)
   const [goal, setGoal] = useState('')
@@ -34,10 +32,84 @@ const userId =
   const [weakTopics, setWeakTopics] = useState('')
 
   const [roadmap, setRoadmap] = useState(null)
+  const [savedRoadmaps, setSavedRoadmaps] = useState([])
   const [progressData, setProgressData] = useState(null)
+
   const [loading, setLoading] = useState(false)
+  const [savedLoading, setSavedLoading] = useState(false)
   const [progressLoading, setProgressLoading] = useState(false)
   const [expandedWeek, setExpandedWeek] = useState(null)
+
+  const fetchProgress = async (uid, roadmapId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/generate-roadmap/progress/${uid}/${roadmapId}`
+      )
+
+      const data = await response.json()
+
+      if (data?.found && data?.progress) {
+        setProgressData(data.progress)
+      } else {
+        setProgressData(null)
+      }
+    } catch (error) {
+      console.error('Progress fetch error:', error)
+    }
+  }
+
+  const loadSavedRoadmaps = async () => {
+    if (!userId || userId === 'guest') return
+
+    try {
+      setSavedLoading(true)
+
+      const response = await fetch(
+        `${API_BASE}/generate-roadmap/user/${userId}`
+      )
+
+      const data = await response.json()
+
+      console.log('Saved Roadmaps:', data)
+
+      if (data?.roadmaps) {
+        setSavedRoadmaps(data.roadmaps)
+
+        if (data.roadmaps.length > 0 && !roadmap) {
+          const latest = data.roadmaps[0]
+
+          setRoadmap(latest)
+
+          if (latest?.milestones?.length > 0) {
+            setExpandedWeek(latest.milestones[0].week)
+          }
+
+          await fetchProgress(userId, latest.roadmap_id)
+        }
+      }
+    } catch (error) {
+      console.error('Saved roadmap fetch error:', error)
+    } finally {
+      setSavedLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!authLoading && userId !== 'guest') {
+      loadSavedRoadmaps()
+    }
+  }, [authLoading, userId])
+
+  const openSavedRoadmap = async (selectedRoadmap) => {
+    setRoadmap(selectedRoadmap)
+    setProgressData(null)
+
+    if (selectedRoadmap?.milestones?.length > 0) {
+      setExpandedWeek(selectedRoadmap.milestones[0].week)
+    }
+
+    await fetchProgress(userId, selectedRoadmap.roadmap_id)
+  }
 
   const getWeekStatus = (weekNumber) => {
     const found = progressData?.weeks?.find(
@@ -47,25 +119,14 @@ const userId =
     return found?.status || 'locked'
   }
 
-  const fetchProgress = async (userId, roadmapId) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/generate-roadmap/progress/${userId}/${roadmapId}`
-      )
-
-      const data = await response.json()
-
-      if (data?.found && data?.progress) {
-        setProgressData(data.progress)
-      }
-    } catch (error) {
-      console.error('Progress fetch error:', error)
-    }
-  }
-
   const generateRoadmap = async () => {
     if (!goal.trim()) {
       alert('Please enter your goal or subject.')
+      return
+    }
+
+    if (!userId || userId === 'guest') {
+      alert('Please login first.')
       return
     }
 
@@ -80,29 +141,36 @@ const userId =
         .map((topic) => topic.trim())
         .filter(Boolean)
 
+      const payload = {
+        user_id: userId,
+        goal,
+        purpose,
+        level,
+        weekly_hours: Number(weeklyHours),
+        duration_weeks: Number(durationWeeks),
+        subject: goal,
+        weak_topics: weakTopicsArray,
+        learning_goal: `Create a ${durationWeeks}-week roadmap for ${goal}`,
+      }
+
+      console.log('Roadmap payload:', payload)
+
       const response = await fetch(`${API_BASE}/generate-roadmap`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          user_id: userId,
-          goal,
-          purpose,
-          level,
-          weekly_hours: Number(weeklyHours),
-          duration_weeks: Number(durationWeeks),
-          subject: goal,
-          weak_topics: weakTopicsArray,
-          learning_goal: `Create a ${durationWeeks}-week roadmap for ${goal}`,
-        }),
+        body: JSON.stringify(payload),
       })
 
+      const data = await response.json()
+
+      console.log('ROADMAP GENERATED:', data)
+
       if (!response.ok) {
+        console.error('Roadmap generation error:', data)
         throw new Error('Failed to generate roadmap')
       }
-
-      const data = await response.json()
 
       setRoadmap(data)
 
@@ -114,6 +182,7 @@ const userId =
       }
 
       await fetchProgress(data.user_id, data.roadmap_id)
+      await loadSavedRoadmaps()
     } catch (error) {
       console.error(error)
       alert('Roadmap could not be generated. Please try again.')
@@ -156,7 +225,7 @@ const userId =
       if (data.progress) {
         setProgressData(data.progress)
       } else {
-        await fetchProgress(USER_ID, roadmap.roadmap_id)
+        await fetchProgress(userId, roadmap.roadmap_id)
       }
     } catch (error) {
       console.error(error)
@@ -171,25 +240,20 @@ const userId =
       setQuizLoadingWeek(week.week)
 
       const topic =
-        week.topics?.length > 0
-          ? week.topics.join(', ')
-          : week.title
+        week.topics?.length > 0 ? week.topics.join(', ') : week.title
 
-      const response = await fetch(
-        `${API_BASE}/generate-from-roadmap`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            week: week.week,
-            topic,
-            goal: roadmap?.goal || goal,
-            count: 15,
-          }),
-        }
-      )
+      const response = await fetch(`${API_BASE}/generate-from-roadmap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          week: week.week,
+          topic,
+          goal: roadmap?.goal || goal,
+          count: 15,
+        }),
+      })
 
       if (!response.ok) {
         throw new Error('Quiz generation failed')
@@ -205,9 +269,7 @@ const userId =
       navigate('/quiz', {
         state: {
           generatedQuiz: {
-            title:
-              data.title ||
-              `Week ${week.week}: ${week.title} Quiz`,
+            title: data.title || `Week ${week.week}: ${week.title} Quiz`,
             questions: data.questions,
           },
         },
@@ -222,7 +284,6 @@ const userId =
 
   const totalWeeks = roadmap?.milestones?.length || 0
   const completedCount = progressData?.completed_weeks?.length || 0
-
   const progress =
     totalWeeks > 0 ? Math.round((completedCount / totalWeeks) * 100) : 0
 
@@ -262,6 +323,14 @@ const userId =
     return <Lock className="w-7 h-7 text-muted-foreground" />
   }
 
+  if (authLoading) {
+    return (
+      <div className="pt-24 min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div className="pt-24 pb-20 px-4 md:px-8 bg-background min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -277,8 +346,7 @@ const userId =
           className="mb-10"
         >
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            AI Learning{' '}
-            <span className="gradient-text">Roadmap</span>
+            AI Learning <span className="gradient-text">Roadmap</span>
           </h1>
 
           <p className="text-lg text-muted-foreground max-w-3xl">
@@ -287,6 +355,41 @@ const userId =
           </p>
         </motion.div>
 
+        {savedRoadmaps.length > 0 && (
+          <div className="glass-effect-strong p-6 rounded-2xl mb-8 border border-border">
+            <h2 className="text-2xl font-bold mb-4">My Saved Roadmaps</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {savedRoadmaps.map((item) => (
+                <button
+                  key={item.roadmap_id}
+                  onClick={() => openSavedRoadmap(item)}
+                  className={`text-left p-4 rounded-xl border transition ${
+                    roadmap?.roadmap_id === item.roadmap_id
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-card hover:border-primary/50'
+                  }`}
+                >
+                  <p className="font-semibold line-clamp-2">
+                    {item.title}
+                  </p>
+
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {item.purpose || 'Learning'} ·{' '}
+                    {item.milestones?.length || 0} weeks
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {savedLoading && (
+          <p className="text-sm text-muted-foreground mb-4">
+            Loading saved roadmaps...
+          </p>
+        )}
+
         <div className="glass-effect-strong p-6 rounded-2xl mb-8 border border-border">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg">
@@ -294,9 +397,7 @@ const userId =
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold">
-                Generate Your Roadmap
-              </h2>
+              <h2 className="text-2xl font-bold">Generate Your Roadmap</h2>
 
               <p className="text-sm text-muted-foreground">
                 Example: NEET Biology, Class 10 Maths, Python, DSA,
@@ -515,9 +616,7 @@ const userId =
                   >
                     <button
                       onClick={() =>
-                        setExpandedWeek(
-                          isExpanded ? null : week.week
-                        )
+                        setExpandedWeek(isExpanded ? null : week.week)
                       }
                       className="w-full p-5 text-left flex items-center justify-between gap-4"
                     >
@@ -572,10 +671,7 @@ const userId =
 
                             <ul className="space-y-2 text-sm text-muted-foreground">
                               {week.topics?.map((topic, i) => (
-                                <li
-                                  key={i}
-                                  className="flex gap-2"
-                                >
+                                <li key={i} className="flex gap-2">
                                   <span>•</span>
                                   <span>{topic}</span>
                                 </li>
@@ -591,10 +687,7 @@ const userId =
 
                             <ul className="space-y-2 text-sm text-muted-foreground">
                               {week.tasks?.map((task, i) => (
-                                <li
-                                  key={i}
-                                  className="flex gap-2"
-                                >
+                                <li key={i} className="flex gap-2">
                                   <span>•</span>
                                   <span>{task}</span>
                                 </li>
@@ -610,10 +703,7 @@ const userId =
 
                             <ul className="space-y-2 text-sm text-muted-foreground">
                               {week.resources?.map((resource, i) => (
-                                <li
-                                  key={i}
-                                  className="flex gap-2"
-                                >
+                                <li key={i} className="flex gap-2">
                                   <span>•</span>
                                   <span>{resource}</span>
                                 </li>
