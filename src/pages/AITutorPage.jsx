@@ -1,5 +1,7 @@
+import 'regenerator-runtime/runtime'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
 import {
   Send,
   MessageCircle,
@@ -8,8 +10,11 @@ import {
   X,
   Camera,
   FileText,
+  Mic,
+  MicOff,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+
 const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
 const initialSuggestedPrompts = [
@@ -29,25 +34,27 @@ const welcomeMessage = {
 export default function AITutorPage() {
   const { user } = useAuth()
 
-const userId =
-  user?.uid ||
-  user?.email ||
-  'guest'
+  const userId = user?.uid || user?.email || 'guest'
   const [messages, setMessages] = useState([welcomeMessage])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [suggestedPrompts, setSuggestedPrompts] = useState(
-    initialSuggestedPrompts
-  )
+  const [suggestedPrompts, setSuggestedPrompts] = useState(initialSuggestedPrompts)
   const [chats, setChats] = useState([])
-  const [currentConversationId, setCurrentConversationId] =
-    useState(null)
+  const [currentConversationId, setCurrentConversationId] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
 
   const messagesEndRef = useRef(null)
   const fileInputRef = useRef(null)
   const cameraInputRef = useRef(null)
+
+  // Speech Recognition Hooks
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition()
 
   const loadHistory = async () => {
     try {
@@ -77,11 +84,26 @@ const userId =
     }
   }, [previewUrl])
 
+  // Update input text when user speaks
+  useEffect(() => {
+    if (transcript) {
+      setInput(transcript)
+    }
+  }, [transcript])
+
+  // Mic Toggle Logic
+  const toggleListening = () => {
+    if (listening) {
+      SpeechRecognition.stopListening()
+    } else {
+      resetTranscript()
+      SpeechRecognition.startListening({ continuous: true, language: 'en-US' })
+    }
+  }
+
   const loadConversation = async (conversationId) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/chat/conversation/${conversationId}`
-      )
+      const res = await fetch(`${API_BASE}/chat/conversation/${conversationId}`)
       const data = await res.json()
 
       if (!data || !data.messages) return
@@ -90,9 +112,7 @@ const userId =
         id: `${conversationId}-${index}`,
         text: msg.content,
         sender: msg.role === 'user' ? 'user' : 'ai',
-        timestamp: msg.timestamp
-          ? new Date(msg.timestamp)
-          : new Date(),
+        timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
       }))
 
       setMessages(loadedMessages)
@@ -141,12 +161,10 @@ const userId =
 
   const getFileIcon = (file) => {
     if (!file) return '📎'
-
     if (file.type.startsWith('image/')) return '📷'
     if (file.type === 'application/pdf') return '📄'
     if (file.name.endsWith('.docx')) return '📝'
     if (file.name.endsWith('.txt')) return '📃'
-
     return '📎'
   }
 
@@ -155,12 +173,17 @@ const userId =
 
     if (!messageText.trim() && !selectedFile) return
 
+    // Stop listening when sending a message
+    if (listening) {
+      SpeechRecognition.stopListening()
+    }
+
     const userMessage = {
       id: Date.now(),
       text: selectedFile
-        ? `${getFileIcon(selectedFile)} ${
-            selectedFile.name
-          }\n\n${messageText || 'Analyze this uploaded file'}`
+        ? `${getFileIcon(selectedFile)} ${selectedFile.name}\n\n${
+            messageText || 'Analyze this uploaded file'
+          }`
         : messageText,
       sender: 'user',
       timestamp: new Date(),
@@ -168,6 +191,7 @@ const userId =
 
     setMessages((prev) => [...prev, userMessage])
     setInput('')
+    resetTranscript()
     setSuggestedPrompts([])
     setIsLoading(true)
 
@@ -177,16 +201,10 @@ const userId =
       if (selectedFile) {
         const formData = new FormData()
 
-        formData.append('user_id', USER_ID)
-        formData.append(
-          'message',
-          messageText || 'Analyze this uploaded file'
-        )
+        formData.append('user_id', userId)
+        formData.append('message', messageText || 'Analyze this uploaded file')
         formData.append('subject', 'General')
-        formData.append(
-          'conversation_id',
-          currentConversationId || ''
-        )
+        formData.append('conversation_id', currentConversationId || '')
         formData.append('file', selectedFile)
 
         response = await fetch(`${API_BASE}/chat/upload`, {
@@ -219,9 +237,7 @@ const userId =
 
       const aiResponse = {
         id: Date.now() + 1,
-        text:
-          data.reply ||
-          'Sorry, I could not generate a response.',
+        text: data.reply || 'Sorry, I could not generate a response.',
         sender: 'ai',
         timestamp: new Date(),
       }
@@ -254,6 +270,8 @@ const userId =
     ])
     setCurrentConversationId(null)
     setInput('')
+    resetTranscript()
+    if (listening) SpeechRecognition.stopListening()
     removeSelectedFile()
     setSuggestedPrompts(initialSuggestedPrompts)
   }
@@ -295,21 +313,16 @@ const userId =
 
           <div className="space-y-2">
             {chats.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No chats yet
-              </p>
+              <p className="text-xs text-muted-foreground">No chats yet</p>
             )}
 
             {chats.map((chat) => (
               <motion.button
                 key={chat.conversation_id}
                 whileHover={{ x: 5 }}
-                onClick={() =>
-                  loadConversation(chat.conversation_id)
-                }
+                onClick={() => loadConversation(chat.conversation_id)}
                 className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
-                  currentConversationId ===
-                  chat.conversation_id
+                  currentConversationId === chat.conversation_id
                     ? 'bg-primary/20 text-primary border border-primary/30'
                     : 'text-muted-foreground hover:bg-muted'
                 }`}
@@ -345,7 +358,7 @@ const userId =
             <div>
               <h1 className="text-xl font-bold">AI Tutor</h1>
               <p className="text-sm text-muted-foreground">
-                Ask questions, upload images, PDFs, diagrams, and notes
+                Ask questions with Voice, images, PDFs, and notes
               </p>
             </div>
           </div>
@@ -360,9 +373,7 @@ const userId =
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 className={`flex ${
-                  message.sender === 'user'
-                    ? 'justify-end'
-                    : 'justify-start'
+                  message.sender === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
                 <div
@@ -415,32 +426,31 @@ const userId =
           <div ref={messagesEndRef} />
         </div>
 
-        {suggestedPrompts.length > 0 &&
-          messages.length <= 1 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="px-4 md:px-8 pb-4"
-            >
-              <p className="text-xs font-semibold text-muted-foreground mb-3">
-                Try asking:
-              </p>
+        {suggestedPrompts.length > 0 && messages.length <= 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="px-4 md:px-8 pb-4"
+          >
+            <p className="text-xs font-semibold text-muted-foreground mb-3">
+              Try asking:
+            </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {suggestedPrompts.map((prompt, index) => (
-                  <motion.button
-                    key={index}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleSendMessage(prompt)}
-                    className="text-left p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-all text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    {prompt}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {suggestedPrompts.map((prompt, index) => (
+                <motion.button
+                  key={index}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSendMessage(prompt)}
+                  className="text-left p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-all text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {prompt}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         <div className="border-t border-border bg-card px-4 md:px-8 py-4">
           {selectedFile && (
@@ -462,8 +472,7 @@ const userId =
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium truncate">
-                        {getFileIcon(selectedFile)}{' '}
-                        {selectedFile.name}
+                        {getFileIcon(selectedFile)} {selectedFile.name}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
@@ -533,26 +542,48 @@ const userId =
               whileTap={{ scale: 0.95 }}
               type="button"
               onClick={() => cameraInputRef.current?.click()}
-              className="p-3 rounded-lg bg-muted border border-border hover:bg-primary/10 transition"
+              className="p-3 rounded-lg bg-muted border border-border hover:bg-primary/10 transition hidden sm:block"
               title="Take photo"
             >
               <Camera className="w-5 h-5" />
             </motion.button>
+
+            {/* Voice Input Button */}
+            {browserSupportsSpeechRecognition && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={toggleListening}
+                className={`p-3 rounded-lg transition-all border ${
+                  listening
+                    ? 'bg-red-500/10 border-red-500 text-red-500 animate-pulse'
+                    : 'bg-muted border-border hover:bg-primary/10 text-foreground'
+                }`}
+                title={listening ? 'Stop listening' : 'Start speaking'}
+              >
+                {listening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </motion.button>
+            )}
 
             <div className="flex-1 relative">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === 'Enter' && handleSendMessage()
-                }
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder={
-                  selectedFile
+                  listening
+                    ? 'Listening...'
+                    : selectedFile
                     ? 'Ask about this image, PDF, diagram, note, or screenshot...'
-                    : 'Message LearnPath AI...'
+                    : 'Message LearnPath AI (Type or click Mic to speak)...'
                 }
-                className="w-full px-4 py-3 rounded-lg bg-muted border border-border focus:border-primary focus:outline-none transition-colors"
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none transition-colors ${
+                  listening
+                    ? 'bg-red-500/5 border-red-500/50 text-foreground'
+                    : 'bg-muted border-border focus:border-primary'
+                }`}
               />
             </div>
 
@@ -560,9 +591,7 @@ const userId =
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleSendMessage()}
-              disabled={
-                (!input.trim() && !selectedFile) || isLoading
-              }
+              disabled={(!input.trim() && !selectedFile) || isLoading}
               className="p-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-5 h-5" />
@@ -570,8 +599,7 @@ const userId =
           </div>
 
           <p className="text-xs text-muted-foreground mt-2 max-w-4xl mx-auto">
-            💡 Tip: Upload math questions, circuit diagrams, flowcharts,
-            handwritten notes, screenshots, PDFs, or DOCX files.
+            💡 Tip: Click the Mic icon to speak, or upload math questions, PDFs, and screenshots.
           </p>
         </div>
       </div>
