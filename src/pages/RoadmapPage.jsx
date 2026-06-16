@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Circle,
   Lock,
+  Trash2, // 🔥 Naya icon delete button ke liye
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -109,6 +110,41 @@ export default function RoadmapPage() {
     }
 
     await fetchProgress(userId, selectedRoadmap.roadmap_id)
+  }
+
+  // 🔥 NAYA FUNCTION: Roadmap delete karne ka logic
+  const handleDeleteRoadmap = async (e, roadmapId) => {
+    e.stopPropagation() // Isse click karne par roadmap open nahi hoga, sirf delete hoga
+    
+    if (!window.confirm("Are you sure you want to delete this roadmap? This action cannot be undone.")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/generate-roadmap/${userId}/${roadmapId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to delete roadmap')
+      }
+
+      // UI se delete kiya hua roadmap hata do
+      setSavedRoadmaps((prev) => prev.filter((r) => r.roadmap_id !== roadmapId))
+      
+      // Agar currently open roadmap delete kiya hai, toh screen clear kar do
+      if (roadmap?.roadmap_id === roadmapId) {
+        setRoadmap(null)
+        setProgressData(null)
+        setExpandedWeek(null)
+      }
+
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('Failed to delete roadmap.')
+    }
   }
 
   const getWeekStatus = (weekNumber) => {
@@ -361,24 +397,35 @@ export default function RoadmapPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {savedRoadmaps.map((item) => (
-                <button
+                // 🔥 YAHAN UI CHANGE KIYA HAI: Button ko Div banaya aur Delete icon add kiya
+                <div
                   key={item.roadmap_id}
                   onClick={() => openSavedRoadmap(item)}
-                  className={`text-left p-4 rounded-xl border transition ${
+                  className={`relative text-left p-4 rounded-xl border transition cursor-pointer group flex justify-between items-start ${
                     roadmap?.roadmap_id === item.roadmap_id
                       ? 'border-primary bg-primary/10'
                       : 'border-border bg-card hover:border-primary/50'
                   }`}
                 >
-                  <p className="font-semibold line-clamp-2">
-                    {item.title}
-                  </p>
+                  <div className="pr-4">
+                    <p className="font-semibold line-clamp-2">
+                      {item.title}
+                    </p>
 
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {item.purpose || 'Learning'} ·{' '}
-                    {item.milestones?.length || 0} weeks
-                  </p>
-                </button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {item.purpose || 'Learning'} ·{' '}
+                      {item.milestones?.length || 0} weeks
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleDeleteRoadmap(e, item.roadmap_id)}
+                    title="Delete Roadmap"
+                    className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>

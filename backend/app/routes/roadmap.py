@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_roadmap_service
 from app.models.roadmap import RoadmapRequest, RoadmapResponse
@@ -94,3 +94,23 @@ async def update_roadmap_week_progress(
         roadmap_id=roadmap_id,
         week=week,
     )
+
+# 🔥 NAYA ENDPOINT: Roadmap Delete Karne Ke Liye
+@router.delete("/{user_id}/{roadmap_id}")
+async def delete_roadmap(
+    user_id: str,
+    roadmap_id: str,
+    service: RoadmapService = Depends(get_roadmap_service),
+):
+    success = await service.delete_roadmap(user_id=user_id, roadmap_id=roadmap_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=404, 
+            detail="Roadmap not found or already deleted."
+        )
+        
+    return {
+        "success": True, 
+        "message": "Roadmap and progress deleted successfully."
+    }

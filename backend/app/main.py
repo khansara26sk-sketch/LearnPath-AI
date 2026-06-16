@@ -1,9 +1,18 @@
 import logging
+import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# --- Load Environment Variables ---
+# Isse ensure karo ki load_dotenv path sahi hai
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ConfigDict # Naya import
+from pydantic import BaseModel, Field, ConfigDict
+
+# Debug: Print loaded env variables to verify (Security: remove this later)
+print(f"DEBUG: PINECONE_API_KEY from os.environ: {os.getenv('PINECONE_API_KEY')}")
 
 from app.config import get_settings
 from app.core.exceptions import (
@@ -16,7 +25,7 @@ from app.database.connection import (
     connect_to_mongo,
 )
 from app.routes import chat, quiz, roadmap, pdf_tools, dashboard
-from app.services.groq_service import GroqService # Naya import
+from app.services.groq_service import GroqService
 
 # --- Request Model ---
 class QuizRequest(BaseModel):
@@ -64,22 +73,12 @@ def create_app() -> FastAPI:
     app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
 
-    # --- Naya Route ---
     @app.post(f"{settings.api_prefix}/generate-quiz")
     async def generate_quiz(req: QuizRequest):
         service = GroqService()
         prompt = f"Generate {req.count} MCQs for a {req.class_name} student on topic '{req.topic}' in subject '{req.subject}'. Return JSON with key 'questions' containing list of objects (question, options, correct index)."
         questions = await service.generate_questions(prompt)
         return {"questions": questions}
-
-    @app.get("/health", tags=["Health"])
-    async def health_check():
-        return {
-            "status": "healthy",
-            "app": settings.app_name,
-            "environment": settings.app_env,
-            "ai_mode": "groq" if settings.groq_enabled else "mock",
-        }
 
     app.include_router(quiz.router, prefix=settings.api_prefix)
     app.include_router(roadmap.router, prefix=settings.api_prefix)
