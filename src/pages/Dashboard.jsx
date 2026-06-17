@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -21,15 +21,13 @@ import {
   TrendingUp,
   Zap,
   Target,
-  Clock,
-  Flame,
-  Award,
   ArrowRight,
   CheckCircle2,
   FileText,
   Brain,
   ListChecks,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 
 const API_BASE = 'http://127.0.0.1:8000/api/v1'
@@ -47,44 +45,45 @@ const fallbackProgressData = [
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#06b6d4']
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, authLoading } = useAuth()
+  const navigate = useNavigate()
 
   const userName =
-    user?.displayName ||
-    user?.email?.split('@')[0] ||
-    'Student'
+    user?.displayName || user?.email?.split('@')[0] || 'Student'
 
-  const userId =
-    user?.uid ||
-    user?.email ||
-    'guest'
+  const userId = user?.uid || user?.email || 'guest'
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchDashboard = async () => {
+    if (!userId || userId === 'guest') return
+
     try {
       setLoading(true)
 
-      const response = await fetch(
-        `${API_BASE}/dashboard/${userId}` 
-      )
+      const response = await fetch(`${API_BASE}/dashboard/${userId}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard')
       }
 
       const data = await response.json()
+      console.log('Dashboard API:', data)
+
       setDashboardData(data)
     } catch (error) {
       console.error('Dashboard fetch error:', error)
+
       setDashboardData({
         success: false,
         user_id: userId,
         quizzes_taken: 0,
         roadmaps_created: 0,
         completed_weeks: 0,
+        weak_topics: [],
+        needs_revision_count: 0,
       })
     } finally {
       setLoading(false)
@@ -92,18 +91,24 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-  if (userId && userId !== 'guest') {
-    fetchDashboard()
-  }
-}, [userId])
+    if (!authLoading && userId !== 'guest') {
+      fetchDashboard()
+    }
+  }, [authLoading, userId])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
   const completedWeeks = dashboardData?.completed_weeks || 0
+  const weakTopics = dashboardData?.weak_topics || []
+  const needsRevisionCount =
+    dashboardData?.needs_revision_count || weakTopics.length || 0
 
   const overallProgress =
     roadmapsCreated > 0
-      ? Math.min(100, Math.round((completedWeeks / (roadmapsCreated * 8)) * 100))
+      ? Math.min(
+          100,
+          Math.round((completedWeeks / (roadmapsCreated * 8)) * 100)
+        )
       : 0
 
   const progressData = dashboardData?.weekly_progress?.length
@@ -117,21 +122,10 @@ export default function Dashboard() {
       }))
 
   const topicsData = [
-    {
-      name: 'Quizzes',
-      value: quizzesTaken,
-      color: '#6366f1',
-    },
-    {
-      name: 'Roadmaps',
-      value: roadmapsCreated,
-      color: '#8b5cf6',
-    },
-    {
-      name: 'Completed Weeks',
-      value: completedWeeks,
-      color: '#06b6d4',
-    },
+    { name: 'Quizzes', value: quizzesTaken, color: '#6366f1' },
+    { name: 'Roadmaps', value: roadmapsCreated, color: '#8b5cf6' },
+    { name: 'Completed Weeks', value: completedWeeks, color: '#06b6d4' },
+    { name: 'Needs Revision', value: needsRevisionCount, color: '#ef4444' },
   ].filter((item) => item.value > 0)
 
   const masteryData = [
@@ -175,11 +169,11 @@ export default function Dashboard() {
       bgColor: 'bg-green-500/10',
     },
     {
-      label: 'Overall Progress',
-      value: `${overallProgress}%`,
-      icon: TrendingUp,
-      color: 'text-cyan-500',
-      bgColor: 'bg-cyan-500/10',
+      label: 'Needs Revision',
+      value: needsRevisionCount,
+      icon: AlertTriangle,
+      color: 'text-red-500',
+      bgColor: 'bg-red-500/10',
     },
   ]
 
@@ -238,9 +232,12 @@ export default function Dashboard() {
     },
     {
       id: 3,
-      title: 'Ask AI Tutor for weak topics',
-      status: 'not-started',
-      progress: 0,
+      title:
+        weakTopics.length > 0
+          ? `Revise ${weakTopics[0]}`
+          : 'Ask AI Tutor for weak topics',
+      status: weakTopics.length > 0 ? 'in-progress' : 'not-started',
+      progress: weakTopics.length > 0 ? 40 : 0,
       path: '/tutor',
     },
   ]
@@ -248,15 +245,20 @@ export default function Dashboard() {
   const resources = [
     {
       id: 1,
-      title: roadmapsCreated > 0 ? 'Continue Roadmap' : 'Generate Roadmap',
-      type: 'Roadmap',
-      duration: `${roadmapsCreated} created`,
-      thumbnail: '🗺️',
-      path: '/roadmap',
+      title:
+        weakTopics.length > 0
+          ? `Revise ${weakTopics[0]}`
+          : 'Generate Roadmap',
+      type: weakTopics.length > 0 ? 'Revision' : 'Roadmap',
+      duration:
+        weakTopics.length > 0 ? 'Needs focus' : `${roadmapsCreated} created`,
+      thumbnail: weakTopics.length > 0 ? '⚠️' : '🗺️',
+      path: weakTopics.length > 0 ? '/tutor' : '/roadmap',
     },
     {
       id: 2,
-      title: quizzesTaken > 0 ? 'Practice More Quizzes' : 'Start Quiz Practice',
+      title:
+        quizzesTaken > 0 ? 'Practice More Quizzes' : 'Start Quiz Practice',
       type: 'Quiz',
       duration: `${quizzesTaken} taken`,
       thumbnail: '📝',
@@ -271,6 +273,35 @@ export default function Dashboard() {
       path: '/tutor',
     },
   ]
+
+  const generateRevisionQuiz = () => {
+    const topics = dashboardData?.weak_topics || []
+
+    if (!topics.length) {
+      alert('No weak topics found.')
+      return
+    }
+
+    localStorage.setItem('revision_topics', JSON.stringify(topics))
+
+    const topicString = topics.slice(0, 5).join(', ')
+
+    navigate('/quiz', {
+      state: {
+        revisionQuizTopic: topicString,
+        revisionMode: true,
+      },
+    })
+  }
+
+  if (authLoading || loading) {
+    return (
+      <div className="pt-24 min-h-screen flex flex-col items-center justify-center text-muted-foreground">
+        <Loader2 className="w-10 h-10 animate-spin mb-4 text-primary" />
+        Loading live dashboard...
+      </div>
+    )
+  }
 
   return (
     <div className="pt-16 min-h-screen bg-background">
@@ -404,117 +435,200 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="h-[70vh] flex flex-col items-center justify-center text-muted-foreground">
-              <Loader2 className="w-10 h-10 animate-spin mb-4 text-primary" />
-              Loading live dashboard...
+          <div className="p-4 md:p-6 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {stats.map((stat, i) => {
+                const Icon = stat.icon
+
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="glass-effect p-6 rounded-xl hover-lift"
+                  >
+                    <div className={`${stat.bgColor} p-3 rounded-lg w-fit mb-3`}>
+                      <Icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
+
+                    <p className="text-muted-foreground text-sm mb-1">
+                      {stat.label}
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {stat.value}
+                    </p>
+                  </motion.div>
+                )
+              })}
             </div>
-          ) : (
-            <div className="p-4 md:p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat, i) => {
-                  const Icon = stat.icon
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22 }}
+              className="glass-effect p-6 rounded-xl border border-red-500/20"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h3 className="text-lg font-semibold">
+                  Weak Topics / Needs Revision
+                </h3>
+              </div>
+
+              {weakTopics.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    AI detected these weak areas from your quiz analysis.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {weakTopics.map((topic, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-2 rounded-lg bg-red-500/10 text-red-500 text-sm font-medium"
+                      >
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={generateRevisionQuiz}
+                    className="mt-5 px-5 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition"
+                  >
+                    Generate Revision Quiz
+                  </button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  No weak topics found yet. Take a quiz to generate AI analysis.
+                </p>
+              )}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="glass-effect p-6 rounded-xl"
+            >
+              <div className="flex items-center gap-2 mb-5">
+                <Brain className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">
+                  AI Learning Tools
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {quickTools.map((tool, i) => {
+                  const Icon = tool.icon
 
                   return (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="glass-effect p-6 rounded-xl hover-lift"
-                    >
-                      <div className={`${stat.bgColor} p-3 rounded-lg w-fit mb-3`}>
-                        <Icon className={`w-6 h-6 ${stat.color}`} />
-                      </div>
+                    <Link key={tool.title} to={tool.path}>
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 * i }}
+                        whileHover={{ y: -6 }}
+                        className="h-full bg-card p-5 rounded-xl border border-border hover:border-primary/50 transition-all cursor-pointer"
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-xl bg-gradient-to-r ${tool.gradient} flex items-center justify-center mb-4`}
+                        >
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
 
-                      <p className="text-muted-foreground text-sm mb-1">
-                        {stat.label}
-                      </p>
-                      <p className="text-2xl font-bold">
-                        {stat.value}
-                      </p>
-                    </motion.div>
+                        <h4 className="font-bold mb-2">
+                          {tool.title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {tool.description}
+                        </p>
+
+                        <div className="flex items-center gap-2 text-primary text-sm font-medium">
+                          Open
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
+                      </motion.div>
+                    </Link>
                   )
                 })}
               </div>
+            </motion.div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="glass-effect p-6 rounded-xl"
+              >
+                <h3 className="text-lg font-semibold mb-4">
+                  Weekly Progress
+                </h3>
+
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={progressData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(255,255,255,0.1)"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="currentColor"
+                      style={{ opacity: 0.5 }}
+                    />
+                    <YAxis
+                      stroke="currentColor"
+                      style={{ opacity: 0.5 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        border: 'none',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="progress"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      dot={{ fill: '#6366f1', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
+                transition={{ delay: 0.5 }}
                 className="glass-effect p-6 rounded-xl"
               >
-                <div className="flex items-center gap-2 mb-5">
-                  <Brain className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold">
-                    AI Learning Tools
-                  </h3>
-                </div>
+                <h3 className="text-lg font-semibold mb-4">
+                  Activity Breakdown
+                </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  {quickTools.map((tool, i) => {
-                    const Icon = tool.icon
-
-                    return (
-                      <Link key={tool.title} to={tool.path}>
-                        <motion.div
-                          initial={{ opacity: 0, y: 15 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.1 * i }}
-                          whileHover={{ y: -6 }}
-                          className="h-full bg-card p-5 rounded-xl border border-border hover:border-primary/50 transition-all cursor-pointer"
-                        >
-                          <div
-                            className={`w-12 h-12 rounded-xl bg-gradient-to-r ${tool.gradient} flex items-center justify-center mb-4`}
-                          >
-                            <Icon className="w-6 h-6 text-white" />
-                          </div>
-
-                          <h4 className="font-bold mb-2">
-                            {tool.title}
-                          </h4>
-
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {tool.description}
-                          </p>
-
-                          <div className="flex items-center gap-2 text-primary text-sm font-medium">
-                            Open
-                            <ArrowRight className="w-4 h-4" />
-                          </div>
-                        </motion.div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              </motion.div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="glass-effect p-6 rounded-xl"
-                >
-                  <h3 className="text-lg font-semibold mb-4">
-                    Weekly Progress
-                  </h3>
-
+                {topicsData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={250}>
-                    <LineChart data={progressData}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.1)"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        stroke="currentColor"
-                        style={{ opacity: 0.5 }}
-                      />
-                      <YAxis
-                        stroke="currentColor"
-                        style={{ opacity: 0.5 }}
-                      />
+                    <PieChart>
+                      <Pie
+                        data={topicsData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {topicsData.map((entry, index) => (
+                          <Cell key={index} fill={entry.color} />
+                        ))}
+                      </Pie>
+
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'rgba(0,0,0,0.8)',
@@ -522,283 +636,232 @@ export default function Dashboard() {
                           borderRadius: '8px',
                         }}
                       />
-                      <Line
-                        type="monotone"
-                        dataKey="progress"
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        dot={{ fill: '#6366f1', r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
+                    </PieChart>
                   </ResponsiveContainer>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="glass-effect p-6 rounded-xl"
-                >
-                  <h3 className="text-lg font-semibold mb-4">
-                    Activity Breakdown
-                  </h3>
-
-                  {topicsData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={topicsData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {topicsData.map((entry, index) => (
-                            <Cell key={index} fill={entry.color} />
-                          ))}
-                        </Pie>
-
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            border: 'none',
-                            borderRadius: '8px',
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                      No activity yet
-                    </div>
-                  )}
-                </motion.div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="lg:col-span-2 glass-effect p-6 rounded-xl"
-                >
-                  <h3 className="text-lg font-semibold mb-4">
-                    Live Mastery Scores
-                  </h3>
-
-                  <div className="space-y-4">
-                    {masteryData.map((topic, i) => (
-                      <div key={i}>
-                        <div className="flex justify-between items-center mb-2">
-                          <div>
-                            <p className="font-medium">
-                              {topic.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {topic.category}
-                            </p>
-                          </div>
-
-                          <span className="font-bold text-primary">
-                            {topic.mastery}%
-                          </span>
-                        </div>
-
-                        <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${topic.mastery}%` }}
-                            transition={{
-                              delay: 0.1 * i,
-                              duration: 0.8,
-                            }}
-                            className="h-full bg-gradient-to-r from-indigo-600 to-purple-600"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                ) : (
+                  <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                    No activity yet
                   </div>
-                </motion.div>
+                )}
+              </motion.div>
+            </div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
-                  className="glass-effect p-6 rounded-xl"
-                >
-                  <h3 className="text-lg font-semibold mb-4">
-                    Achievements
-                  </h3>
-
-                  <div className="space-y-3">
-                    {[
-                      {
-                        emoji: '🔥',
-                        label: 'Started Learning',
-                        unlocked:
-                          quizzesTaken > 0 || roadmapsCreated > 0,
-                      },
-                      {
-                        emoji: '⭐',
-                        label: 'Quiz Explorer',
-                        unlocked: quizzesTaken >= 1,
-                      },
-                      {
-                        emoji: '🚀',
-                        label: 'Roadmap Builder',
-                        unlocked: roadmapsCreated >= 1,
-                      },
-                      {
-                        emoji: '👑',
-                        label: 'Consistent Learner',
-                        unlocked: completedWeeks >= 3,
-                      },
-                    ].map((badge, i) => (
-                      <div
-                        key={i}
-                        className={`p-3 rounded-lg flex items-center gap-3 transition-all ${
-                          badge.unlocked
-                            ? 'bg-yellow-500/10 border border-yellow-500/30'
-                            : 'bg-muted/50 opacity-50'
-                        }`}
-                      >
-                        <span className="text-2xl">
-                          {badge.emoji}
-                        </span>
-
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">
-                            {badge.label}
-                          </p>
-                          {!badge.unlocked && (
-                            <p className="text-xs text-muted-foreground">
-                              Locked
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
-
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="glass-effect p-6 rounded-xl"
+                transition={{ delay: 0.6 }}
+                className="lg:col-span-2 glass-effect p-6 rounded-xl"
               >
-                <h3 className="text-lg font-semibold mb-6">
-                  Learning Roadmap
+                <h3 className="text-lg font-semibold mb-4">
+                  Live Mastery Scores
                 </h3>
 
                 <div className="space-y-4">
-                  {liveRoadmap.map((item, i) => {
-                    const statusStyles = {
-                      'in-progress':
-                        'border-cyan-500/50 bg-cyan-500/5',
-                      'not-started': 'border-border',
-                      locked: 'border-border opacity-60',
-                    }
+                  {masteryData.map((topic, i) => (
+                    <div key={i}>
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <p className="font-medium">
+                            {topic.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {topic.category}
+                          </p>
+                        </div>
 
-                    return (
-                      <Link key={item.id} to={item.path}>
+                        <span className="font-bold text-primary">
+                          {topic.mastery}%
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                         <motion.div
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.1 }}
-                          className={`p-4 rounded-lg border ${statusStyles[item.status]}`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className="relative w-10 h-10">
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full" />
-                                <div className="absolute inset-1 bg-card rounded-full flex items-center justify-center">
-                                  {item.status === 'locked' ? (
-                                    '🔒'
-                                  ) : item.status === 'in-progress' ? (
-                                    <span className="text-sm font-bold">
-                                      ↻
-                                    </span>
-                                  ) : (
-                                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                                  )}
-                                </div>
-                              </div>
-
-                              <div>
-                                <p className="font-medium">
-                                  {item.title}
-                                </p>
-                                {item.progress > 0 && (
-                                  <div className="w-24 bg-muted rounded-full h-1.5 overflow-hidden mt-1">
-                                    <div
-                                      style={{
-                                        width: `${item.progress}%`,
-                                      }}
-                                      className="h-full bg-gradient-to-r from-indigo-600 to-purple-600"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <ArrowRight className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        </motion.div>
-                      </Link>
-                    )
-                  })}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${topic.mastery}%` }}
+                          transition={{
+                            delay: 0.1 * i,
+                            duration: 0.8,
+                          }}
+                          className="h-full bg-gradient-to-r from-indigo-600 to-purple-600"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
+                transition={{ delay: 0.7 }}
                 className="glass-effect p-6 rounded-xl"
               >
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold">
-                    Recommended For You
-                  </h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Achievements
+                </h3>
 
-                  <Link
-                    to="/roadmap"
-                    className="text-primary font-medium text-sm hover:underline"
-                  >
-                    View All
-                  </Link>
-                </div>
+                <div className="space-y-3">
+                  {[
+                    {
+                      emoji: '🔥',
+                      label: 'Started Learning',
+                      unlocked: quizzesTaken > 0 || roadmapsCreated > 0,
+                    },
+                    {
+                      emoji: '⭐',
+                      label: 'Quiz Explorer',
+                      unlocked: quizzesTaken >= 1,
+                    },
+                    {
+                      emoji: '🚀',
+                      label: 'Roadmap Builder',
+                      unlocked: roadmapsCreated >= 1,
+                    },
+                    {
+                      emoji: '👑',
+                      label: 'Consistent Learner',
+                      unlocked: completedWeeks >= 3,
+                    },
+                  ].map((badge, i) => (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg flex items-center gap-3 transition-all ${
+                        badge.unlocked
+                          ? 'bg-yellow-500/10 border border-yellow-500/30'
+                          : 'bg-muted/50 opacity-50'
+                      }`}
+                    >
+                      <span className="text-2xl">
+                        {badge.emoji}
+                      </span>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {resources.map((resource) => (
-                    <Link key={resource.id} to={resource.path}>
-                      <motion.div
-                        whileHover={{ y: -5 }}
-                        className="bg-card p-4 rounded-lg border border-border hover:border-primary/50 transition-all cursor-pointer"
-                      >
-                        <div className="text-4xl mb-3">
-                          {resource.thumbnail}
-                        </div>
-                        <h4 className="font-semibold text-sm mb-2">
-                          {resource.title}
-                        </h4>
-
-                        <div className="flex justify-between items-center text-xs text-muted-foreground">
-                          <span>{resource.type}</span>
-                          <span>{resource.duration}</span>
-                        </div>
-                      </motion.div>
-                    </Link>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {badge.label}
+                        </p>
+                        {!badge.unlocked && (
+                          <p className="text-xs text-muted-foreground">
+                            Locked
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </motion.div>
             </div>
-          )}
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="glass-effect p-6 rounded-xl"
+            >
+              <h3 className="text-lg font-semibold mb-6">
+                Learning Roadmap
+              </h3>
+
+              <div className="space-y-4">
+                {liveRoadmap.map((item, i) => {
+                  const statusStyles = {
+                    'in-progress': 'border-cyan-500/50 bg-cyan-500/5',
+                    'not-started': 'border-border',
+                    locked: 'border-border opacity-60',
+                  }
+
+                  return (
+                    <Link key={item.id} to={item.path}>
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className={`p-4 rounded-lg border ${statusStyles[item.status]}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="relative w-10 h-10">
+                              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full" />
+                              <div className="absolute inset-1 bg-card rounded-full flex items-center justify-center">
+                                {item.status === 'locked' ? (
+                                  '🔒'
+                                ) : item.status === 'in-progress' ? (
+                                  <span className="text-sm font-bold">
+                                    ↻
+                                  </span>
+                                ) : (
+                                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="font-medium">
+                                {item.title}
+                              </p>
+                              {item.progress > 0 && (
+                                <div className="w-24 bg-muted rounded-full h-1.5 overflow-hidden mt-1">
+                                  <div
+                                    style={{ width: `${item.progress}%` }}
+                                    className="h-full bg-gradient-to-r from-indigo-600 to-purple-600"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      </motion.div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+              className="glass-effect p-6 rounded-xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold">
+                  Recommended For You
+                </h3>
+
+                <Link
+                  to="/roadmap"
+                  className="text-primary font-medium text-sm hover:underline"
+                >
+                  View All
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {resources.map((resource) => (
+                  <Link key={resource.id} to={resource.path}>
+                    <motion.div
+                      whileHover={{ y: -5 }}
+                      className="bg-card p-4 rounded-lg border border-border hover:border-primary/50 transition-all cursor-pointer"
+                    >
+                      <div className="text-4xl mb-3">
+                        {resource.thumbnail}
+                      </div>
+                      <h4 className="font-semibold text-sm mb-2">
+                        {resource.title}
+                      </h4>
+
+                      <div className="flex justify-between items-center text-xs text-muted-foreground">
+                        <span>{resource.type}</span>
+                        <span>{resource.duration}</span>
+                      </div>
+                    </motion.div>
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>

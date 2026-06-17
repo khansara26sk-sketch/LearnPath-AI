@@ -516,5 +516,27 @@ Rules:
                 roadmap_id=roadmap.roadmap_id,
                 total_weeks=len(roadmap.milestones),
             )
+    async def delete_roadmap(
+        self,
+        user_id: str,
+        roadmap_id: str,
+    ):
+        db = get_database()
 
-            return roadmap
+        await db["roadmaps"].delete_one(
+            {
+                "user_id": user_id,
+                "roadmap_id": roadmap_id,
+            }
+        )
+
+        await db["roadmap_progress"].delete_one(
+            {
+                "user_id": user_id,
+                "roadmap_id": roadmap_id,
+            }
+        )
+        return {
+    "success": True,
+    "message": "Roadmap deleted successfully",
+}

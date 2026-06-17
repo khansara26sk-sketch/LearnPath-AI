@@ -94,3 +94,13 @@ async def update_roadmap_week_progress(
         roadmap_id=roadmap_id,
         week=week,
     )
+@router.delete("/{user_id}/{roadmap_id}")
+async def delete_roadmap(
+    user_id: str,
+    roadmap_id: str,
+    service: RoadmapService = Depends(get_roadmap_service),
+):
+    return await service.delete_roadmap(
+        user_id=user_id,
+        roadmap_id=roadmap_id,
+    )

@@ -21,8 +21,11 @@ export default function QuizPage() {
   const userId = user?.uid || user?.email || 'guest'
 
   const generatedQuiz = location.state?.generatedQuiz || null
+  const revisionQuizTopic = location.state?.revisionQuizTopic || ''
+  const revisionMode = location.state?.revisionMode || false
 
-  const [topic, setTopic] = useState('')
+  const [topic, setTopic] = useState(revisionQuizTopic)
+
   const [difficulty, setDifficulty] = useState('Medium')
   const [questionCount, setQuestionCount] = useState(10)
   const [studentClass, setStudentClass] = useState('College / University') // Naya state class ke liye
@@ -48,6 +51,15 @@ export default function QuizPage() {
     setShowResults(false)
     setTimeRemaining(quizDuration)
   }, [generatedQuiz, quizData, quizDuration])
+  useEffect(() => {
+  if (
+    revisionMode &&
+    revisionQuizTopic &&
+    activeQuiz.length === 0
+  ) {
+    generateRevisionQuiz()
+  }
+}, [])
 
   useEffect(() => {
     if (showResults || activeQuiz.length === 0) return
@@ -143,7 +155,47 @@ export default function QuizPage() {
       setLoadingQuiz(false)
     }
   }
+  const generateRevisionQuiz = async () => {
+  try {
+    setLoadingQuiz(true)
 
+    const response = await fetch(
+      `${API_BASE}/generate`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          topic: revisionQuizTopic,
+          difficulty: 'Medium',
+          count: 10,
+          question_count: 10,
+          class_name: studentClass,
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    const questions = normalizeQuestions(
+      data.questions || []
+    )
+
+    setQuizTitle(
+      `Revision Quiz: ${revisionQuizTopic}`
+    )
+
+    setQuizData(questions)
+
+  } catch (error) {
+    console.error(error)
+    alert('Failed to generate revision quiz')
+  } finally {
+    setLoadingQuiz(false)
+  }
+}
   const handleSelectAnswer = (optionIndex) => {
     if (!showResults) {
       setSelectedAnswers({ ...selectedAnswers, [currentQuestion]: optionIndex })

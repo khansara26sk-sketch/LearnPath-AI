@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Circle,
   Lock,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -55,6 +56,7 @@ export default function RoadmapPage() {
       }
     } catch (error) {
       console.error('Progress fetch error:', error)
+      setProgressData(null)
     }
   }
 
@@ -111,6 +113,40 @@ export default function RoadmapPage() {
     await fetchProgress(userId, selectedRoadmap.roadmap_id)
   }
 
+  const deleteRoadmap = async (roadmapId) => {
+    try {
+      const confirmDelete = window.confirm('Delete this roadmap?')
+
+      if (!confirmDelete) return
+
+      const response = await fetch(
+        `${API_BASE}/generate-roadmap/${userId}/${roadmapId}`,
+        {
+          method: 'DELETE',
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Delete failed')
+      }
+
+      setSavedRoadmaps((prev) =>
+        prev.filter((item) => item.roadmap_id !== roadmapId)
+      )
+
+      if (roadmap?.roadmap_id === roadmapId) {
+        setRoadmap(null)
+        setProgressData(null)
+        setExpandedWeek(null)
+      }
+    } catch (error) {
+      console.error('Delete roadmap error:', error)
+      alert('Failed to delete roadmap.')
+    }
+  }
+
   const getWeekStatus = (weekNumber) => {
     const found = progressData?.weeks?.find(
       (item) => item.week === weekNumber
@@ -153,8 +189,6 @@ export default function RoadmapPage() {
         learning_goal: `Create a ${durationWeeks}-week roadmap for ${goal}`,
       }
 
-      console.log('Roadmap payload:', payload)
-
       const response = await fetch(`${API_BASE}/generate-roadmap`, {
         method: 'POST',
         headers: {
@@ -164,8 +198,6 @@ export default function RoadmapPage() {
       })
 
       const data = await response.json()
-
-      console.log('ROADMAP GENERATED:', data)
 
       if (!response.ok) {
         console.error('Roadmap generation error:', data)
@@ -361,24 +393,36 @@ export default function RoadmapPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {savedRoadmaps.map((item) => (
-                <button
+                <div
                   key={item.roadmap_id}
-                  onClick={() => openSavedRoadmap(item)}
-                  className={`text-left p-4 rounded-xl border transition ${
+                  className={`p-4 rounded-xl border transition ${
                     roadmap?.roadmap_id === item.roadmap_id
                       ? 'border-primary bg-primary/10'
                       : 'border-border bg-card hover:border-primary/50'
                   }`}
                 >
-                  <p className="font-semibold line-clamp-2">
-                    {item.title}
-                  </p>
+                  <button
+                    onClick={() => openSavedRoadmap(item)}
+                    className="w-full text-left"
+                  >
+                    <p className="font-semibold line-clamp-2">
+                      {item.title}
+                    </p>
 
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {item.purpose || 'Learning'} ·{' '}
-                    {item.milestones?.length || 0} weeks
-                  </p>
-                </button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {item.purpose || 'Learning'} ·{' '}
+                      {item.milestones?.length || 0} weeks
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => deleteRoadmap(item.roadmap_id)}
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Roadmap
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -844,6 +888,29 @@ export default function RoadmapPage() {
                   </div>
                 </div>
               </div>
+
+              {progressData?.needs_revision && (
+                <div className="glass-effect p-6 rounded-2xl border border-red-500/30 bg-red-500/5">
+                  <h3 className="text-lg font-semibold text-red-500 mb-4">
+                    ⚠ Needs Revision
+                  </h3>
+
+                  <p className="text-sm text-muted-foreground mb-4">
+                    AI detected weak topics from your recent quiz. Revise these before moving ahead.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {progressData?.revision_topics?.map((topic, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-medium"
+                      >
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="glass-effect p-6 rounded-2xl border border-border">
                 <h3 className="text-lg font-semibold mb-4">
