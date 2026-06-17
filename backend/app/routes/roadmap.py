@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.dependencies import get_roadmap_service
 from app.models.roadmap import RoadmapRequest, RoadmapResponse
@@ -93,14 +93,4 @@ async def update_roadmap_week_progress(
         user_id=user_id,
         roadmap_id=roadmap_id,
         week=week,
-    )
-@router.delete("/{user_id}/{roadmap_id}")
-async def delete_roadmap(
-    user_id: str,
-    roadmap_id: str,
-    service: RoadmapService = Depends(get_roadmap_service),
-):
-    return await service.delete_roadmap(
-        user_id=user_id,
-        roadmap_id=roadmap_id,
     )

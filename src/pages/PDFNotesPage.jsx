@@ -6,10 +6,10 @@ import {
   FileText,
   Brain,
   ListChecks,
-  Layers,
   Loader2,
-  Clock,
-  ChevronRight
+  Database,
+  History,
+  Clock // Naye icons add kiye hain
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -23,364 +23,200 @@ export default function PDFNotesPage() {
   const [file, setFile] = useState(null)
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
-  const [activeTool, setActiveTool] = useState('')
+  const [isTraining, setIsTraining] = useState(false)
+  
+  // 🔥 NAYA STATE: Quiz ke timer ke liye (default 10 minutes)
+  const [quizTimer, setQuizTimer] = useState(10) 
 
-  // New State for History
+  // History states
   const [history, setHistory] = useState([])
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
-  const loadHistory = async () => {
-    if (!userId || userId === 'guest') return
-    setIsLoadingHistory(true)
+  const fetchHistory = async () => {
+    if (userId === 'guest') return;
+    
     try {
-      const res = await fetch(`${API_BASE}/pdf/history/${userId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setHistory(data)
+      setLoadingHistory(true)
+      const response = await fetch(`${API_BASE}/pdf/history/${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setHistory(data.history || [])
       }
     } catch (error) {
-      console.error('Failed to load history', error)
+      console.error("History fetch error:", error)
     } finally {
-      setIsLoadingHistory(false)
+      setLoadingHistory(false)
     }
   }
 
   useEffect(() => {
-    loadHistory()
+    fetchHistory()
   }, [userId])
 
-  const saveToHistory = async (fileName, contentType, generatedContent) => {
+  const trainAI = async () => {
+    if (!file) { alert('Please upload a PDF first.'); return }
+    setIsTraining(true)
     try {
-      await fetch(`${API_BASE}/pdf/history`, {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('user_id', userId)
+
+      const response = await fetch(`${API_BASE}/pdf/learn-pdf`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          file_name: fileName,
-          content_type: contentType,
-          content: generatedContent
-        })
+        body: formData,
       })
-      loadHistory() // Refresh history list
+      if (response.ok) {
+        alert('AI successfully trained on this PDF!')
+        await fetchHistory() 
+      } else {
+        alert('Failed to train AI.')
+      }
     } catch (error) {
-      console.error('Failed to save history', error)
+      console.error(error)
+    } finally {
+      setIsTraining(false)
     }
   }
 
   const handleFileChange = (e) => {
     const selected = e.target.files[0]
-
-    if (!selected) return
-
-    if (selected.type !== 'application/pdf') {
-      alert('Please upload a PDF file only.')
-      return
+    if (selected) {
+      setFile(selected)
+      setResult('')
+      console.log("File selected successfully:", selected.name)
+    } else {
+      alert('Please upload a valid file.')
     }
-
-    setFile(selected)
-    setResult('')
-  }
-
-  const convertMCQTextToQuiz = (mcqText) => {
-    const blocks = mcqText
-      .split(/\n\s*\n/)
-      .filter((block) => block.trim().length > 0)
-
-    const questions = []
-
-    blocks.forEach((block, index) => {
-      const lines = block
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-
-      const questionLine = lines.find((line) =>
-        line.toLowerCase().startsWith('question')
-      )
-
-      const optionLines = lines.filter((line) =>
-        /^[A-D][).]/i.test(line)
-      )
-
-      const answerLine = lines.find((line) =>
-        line.toLowerCase().includes('correct answer')
-      )
-
-      if (!questionLine || optionLines.length < 4) return
-
-      const question = questionLine
-        .replace(/^question\s*\d*\s*[:.)-]?\s*/i, '')
-        .trim()
-
-      const options = optionLines.slice(0, 4).map((line) =>
-        line.replace(/^[A-D][).]\s*/i, '').trim()
-      )
-
-      let correct = 0
-
-      if (answerLine) {
-        const match = answerLine.match(/[A-D]/i)
-        if (match) {
-          correct = match[0].toUpperCase().charCodeAt(0) - 65
-        }
-      }
-
-      questions.push({
-        id: index + 1,
-        question,
-        options,
-        correct,
-        category: 'PDF Quiz',
-      })
-    })
-
-    return questions
   }
 
   const generate = async (type) => {
-    if (!file) {
-      alert('Please upload a PDF first.')
-      return
-    }
-
+    if (!file) { alert('Please upload a PDF first.'); return }
     setLoading(true)
-    setActiveTool(type)
     setResult('')
-
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('user_id', userId)
 
-      const response = await fetch(`${API_BASE}/pdf/${type}`, {
-        method: 'POST',
-        body: formData,
-      })
-
+      const response = await fetch(`${API_BASE}/pdf/${type}`, { method: 'POST', body: formData })
       const data = await response.json()
 
       if (type === 'quiz') {
-        const questions = data.questions || []
-
-        if (!questions.length) {
-          alert('Quiz could not be created. Please try another PDF.')
-          return
-        }
-
-        navigate('/quiz', {
-          state: {
-            generatedQuiz: {
-              title: file.name.replace('.pdf', ''),
-              questions,
-            },
-          },
+        // 🔥 UPDATE: Yahan hum timer ka data quiz page ko bhej rahe hain
+        navigate('/quiz', { 
+          state: { 
+            generatedQuiz: { title: file.name, questions: data.questions || [] },
+            timeLimit: quizTimer // <-- Naya data
+          } 
         })
         return
       }
-
-      const generatedResult =
-        data.summary ||
-        data.notes ||
-        data.flashcards ||
-        'No result generated.'
-
-      setResult(generatedResult)
-
-      // Save to history automatically after generation
-      if (generatedResult !== 'No result generated.') {
-        await saveToHistory(file.name, type.charAt(0).toUpperCase() + type.slice(1), generatedResult)
-      }
-
+      setResult(data.summary || data.notes || data.flashcards || 'No result generated.')
+      await fetchHistory() 
     } catch (error) {
-      console.error(error)
       setResult('Failed to generate result.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleHistoryClick = (item) => {
-    setActiveTool(item.content_type.toLowerCase())
-    setResult(item.content)
+  const loadHistoryItem = (item) => {
+    setResult(item.content || item.summary || item.notes || "No content saved.")
   }
 
   return (
     <div className="pt-24 min-h-screen bg-background text-foreground px-4 md:px-8">
-      <div className="max-w-5xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            PDF Notes Generator
-          </h1>
-
-          <p className="text-muted-foreground">
-            Upload your study PDF and generate summaries, notes, quizzes, and flashcards.
-          </p>
-        </motion.div>
-
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">PDF Notes Generator</h1>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-1 bg-card border border-border rounded-2xl p-6"
-          >
-            <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center">
-              <Upload className="w-10 h-10 mx-auto mb-3 text-primary" />
+          {/* Left Column: Upload & History */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            
+            {/* Upload Section */}
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+              <input type="file" onChange={handleFileChange} className="mb-4 w-full text-sm" />
+              <div className="space-y-3">
+                <button onClick={() => generate('summary')} className="w-full p-3 bg-muted hover:bg-muted/80 transition rounded-lg font-medium">Generate Summary</button>
+                <button onClick={() => generate('notes')} className="w-full p-3 bg-muted hover:bg-muted/80 transition rounded-lg font-medium">Generate Notes</button>
+                
+                {/* 🔥 NAYA UI: Timer Select karne ka Dropdown */}
+                <div className="flex items-center justify-between gap-2 bg-muted p-2 rounded-lg mt-2">
+                  <label className="text-sm font-medium text-muted-foreground whitespace-nowrap pl-1">Quiz Timer:</label>
+                  <select 
+                    value={quizTimer} 
+                    onChange={(e) => setQuizTimer(Number(e.target.value))}
+                    className="w-1/2 p-2 bg-background border border-border rounded text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value={5}>5 Mins</option>
+                    <option value={10}>10 Mins</option>
+                    <option value={15}>15 Mins</option>
+                    <option value={30}>30 Mins</option>
+                  </select>
+                </div>
 
-              <p className="font-semibold mb-2">
-                Upload PDF
-              </p>
-
-              <p className="text-sm text-muted-foreground mb-4">
-                Choose a PDF file from your computer.
-              </p>
-
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileChange}
-                className="hidden"
-                id="pdf-upload"
-              />
-
-              <label
-                htmlFor="pdf-upload"
-                className="inline-block cursor-pointer px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium"
-              >
-                Choose File
-              </label>
-            </div>
-
-            {file && (
-              <div className="mt-4 rounded-lg bg-muted p-3">
-                <p className="text-sm font-medium truncate">
-                  📄 {file.name}
-                </p>
-
-                <p className="text-xs text-muted-foreground mt-1">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
+                <button onClick={() => generate('quiz')} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white transition rounded-lg font-medium">Generate Quiz</button>
+                <button onClick={trainAI} disabled={isTraining || !file} className="w-full p-3 bg-teal-600 hover:bg-teal-700 text-white transition rounded-lg font-medium flex items-center justify-center gap-2">
+                  {isTraining ? <><Loader2 className="w-4 h-4 animate-spin"/> Training...</> : <><Database className="w-4 h-4"/> Train AI on PDF</>}
+                </button>
               </div>
-            )}
-
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={() => generate('summary')}
-                disabled={loading}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-muted hover:bg-primary/10 transition disabled:opacity-50"
-              >
-                <FileText className="w-5 h-5" />
-                Generate Summary
-              </button>
-
-              <button
-                onClick={() => generate('notes')}
-                disabled={loading}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-muted hover:bg-primary/10 transition disabled:opacity-50"
-              >
-                <Brain className="w-5 h-5" />
-                Generate Notes
-              </button>
-
-              <button
-                onClick={() => generate('quiz')}
-                disabled={loading}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-muted hover:bg-primary/10 transition disabled:opacity-50"
-              >
-                <ListChecks className="w-5 h-5" />
-                Generate Quiz
-              </button>
-
-              <button
-                onClick={() => generate('flashcards')}
-                disabled={loading}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-lg bg-muted hover:bg-primary/10 transition disabled:opacity-50"
-              >
-                <Layers className="w-5 h-5" />
-                Generate Flashcards
-              </button>
             </div>
 
             {/* History Section */}
-            <div className="mt-8 border-t border-border pt-6">
-              <div className="flex items-center gap-2 mb-4 text-muted-foreground">
-                <Clock className="w-5 h-5" />
-                <h3 className="font-semibold text-foreground">Recent Generations</h3>
-              </div>
-
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {isLoadingHistory ? (
-                  <p className="text-sm text-muted-foreground animate-pulse">Loading history...</p>
-                ) : history.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No recent documents found.</p>
-                ) : (
-                  history.map((item) => (
-                    <button
-                      key={item._id}
-                      onClick={() => handleHistoryClick(item)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all text-left group"
+            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex-1">
+              <h3 className="font-bold flex items-center gap-2 mb-4">
+                <History className="w-5 h-5 text-primary" />
+                Recent History
+              </h3>
+              
+              {loadingHistory ? (
+                <div className="flex justify-center p-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+              ) : history.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center p-4">No recent PDFs found.</p>
+              ) : (
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                  {history.map((item, index) => (
+                    <button 
+                      key={index}
+                      onClick={() => loadHistoryItem(item)}
+                      className="w-full text-left p-3 rounded-lg border border-border bg-background hover:border-primary/50 transition"
                     >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="p-2 bg-card rounded-lg text-primary">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div className="truncate">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {item.file_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {item.content_type} • {new Date(item.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <p className="font-semibold text-sm truncate">{item.filename || "Uploaded PDF"}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Clock className="w-3 h-3" /> {item.type || "Document"}
+                      </p>
                     </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 min-h-[500px]"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">
-                Result
-              </h2>
-
-              {activeTool && (
-                <span className="text-xs px-3 py-1 rounded-full bg-primary/10 text-primary capitalize">
-                  {activeTool === 'mcqs' ? 'quiz' : activeTool}
-                </span>
+                  ))}
+                </div>
               )}
             </div>
 
-            {loading ? (
-              <div className="h-[400px] flex flex-col items-center justify-center text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                {activeTool === 'mcqs'
-                  ? 'Generating quiz and opening Quiz Page...'
-                  : `Generating ${activeTool}...`}
-              </div>
-            ) : result ? (
-              <div className="whitespace-pre-wrap leading-relaxed text-sm md:text-base">
-                {result}
-              </div>
-            ) : (
-              <div className="h-[400px] flex flex-col items-center justify-center text-muted-foreground text-center">
-                <FileText className="w-12 h-12 mb-3" />
-                <p>
-                  Upload a PDF and choose an option to generate learning material.
-                </p>
-              </div>
-            )}
-          </motion.div>
+          </div>
+
+          {/* Right Column: Result Viewer */}
+          <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 min-h-[500px] shadow-sm flex flex-col">
+            <h2 className="text-xl font-bold mb-4 border-b pb-2 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-500" />
+              Generated Result
+            </h2>
+            <div className="flex-1 bg-background rounded-xl p-4 border border-border overflow-y-auto">
+              {loading ? (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                  <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                  <p>Processing PDF...</p>
+                </div>
+              ) : result ? (
+                <div className="whitespace-pre-wrap leading-relaxed prose prose-invert max-w-none">{result}</div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                  <Brain className="w-12 h-12 mb-3" />
+                  <p>Upload a PDF and generate notes, or select from history.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   )

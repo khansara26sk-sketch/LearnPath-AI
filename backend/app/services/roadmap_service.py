@@ -376,6 +376,40 @@ class RoadmapService:
             "progress": progress,
         }
 
+    # 🔥 NAYA FUNCTION: Roadmap aur uski progress ko permanently delete karne ke liye
+    async def delete_roadmap(self, user_id: str, roadmap_id: str) -> bool:
+        try:
+            db = get_database()
+            
+            # 1. Main roadmap document delete karo
+            roadmap_result = await db[self.roadmap_collection].delete_one(
+                {
+                    "user_id": user_id,
+                    "roadmap_id": roadmap_id
+                }
+            )
+            
+            # 2. Roadmap ki progress data bhi delete karo (Taki garbage ikattha na ho)
+            await db[self.progress_collection].delete_one(
+                {
+                    "user_id": user_id,
+                    "roadmap_id": roadmap_id
+                }
+            )
+
+            if roadmap_result.deleted_count > 0:
+                print(f"✅ Successfully deleted roadmap {roadmap_id} for user {user_id}")
+                return True
+                
+            print(f"⚠️ Roadmap {roadmap_id} not found or already deleted.")
+            return False
+
+        except Exception as exc:
+            print("\n========== DELETE ROADMAP ERROR ==========")
+            print(str(exc))
+            print("==========================================\n")
+            raise Exception(f"Failed to delete roadmap: {exc}")
+
     async def generate_roadmap(
         self,
         payload: RoadmapRequest,

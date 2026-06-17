@@ -1,9 +1,17 @@
 import logging
+import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# --- Load Environment Variables ---
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ConfigDict # Naya import
+from pydantic import BaseModel, Field, ConfigDict
+
+# Debug: Print loaded env variables to verify (Security: remove this later)
+print(f"DEBUG: PINECONE_API_KEY from os.environ: {os.getenv('PINECONE_API_KEY')}")
 
 from app.config import get_settings
 from app.core.exceptions import (
@@ -16,15 +24,23 @@ from app.database.connection import (
     connect_to_mongo,
 )
 from app.routes import chat, quiz, roadmap, pdf_tools, dashboard
-from app.services.groq_service import GroqService # Naya import
+from app.services.groq_service import GroqService
 
-# --- Request Model ---
+# 🔥 NAYA IMPORT: Apni email service ko yahan import kiya
+from app.services.email_service import send_login_alert_email
+
+# --- Request Models ---
 class QuizRequest(BaseModel):
     class_name: str = Field(..., alias="class")
     subject: str
     topic: str
     count: int
     model_config = ConfigDict(populate_by_name=True)
+
+# 🔥 NAYA MODEL: Login Email data receive karne ke liye
+class LoginAlertRequest(BaseModel):
+    email: str
+    name: str
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -64,7 +80,6 @@ def create_app() -> FastAPI:
     app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
 
-    # --- Naya Route ---
     @app.post(f"{settings.api_prefix}/generate-quiz")
     async def generate_quiz(req: QuizRequest):
         service = GroqService()
@@ -72,14 +87,11 @@ def create_app() -> FastAPI:
         questions = await service.generate_questions(prompt)
         return {"questions": questions}
 
-    @app.get("/health", tags=["Health"])
-    async def health_check():
-        return {
-            "status": "healthy",
-            "app": settings.app_name,
-            "environment": settings.app_env,
-            "ai_mode": "groq" if settings.groq_enabled else "mock",
-        }
+    # 🔥 NAYA ROUTE: Login Alert Email bhejane wala endpoint
+    @app.post(f"{settings.api_prefix}/auth/login-alert")
+    async def trigger_login_alert(req: LoginAlertRequest):
+        success = send_login_alert_email(req.email, req.name)
+        return {"success": success, "message": "Alert sent"}
 
     app.include_router(quiz.router, prefix=settings.api_prefix)
     app.include_router(roadmap.router, prefix=settings.api_prefix)

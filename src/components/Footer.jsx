@@ -69,16 +69,44 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold mb-4">Follow Us</h3>
             <div className="flex gap-3">
-              <a href="#" className="p-2 hover:bg-muted rounded-lg transition-colors">
+              {/* GitHub Link */}
+              <a 
+                href="https://github.com/agrawalpratibha63" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 hover:bg-muted hover:text-primary rounded-lg transition-colors"
+                title="View my GitHub Profile"
+              >
                 <Github className="w-5 h-5" />
               </a>
-              <a href="#" className="p-2 hover:bg-muted rounded-lg transition-colors">
+
+              {/* Twitter / X Link - Abhi blank rakha hai, agar tumhara hai toh URL daal dena */}
+              <a 
+                href="https://twitter.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 hover:bg-muted hover:text-primary rounded-lg transition-colors"
+              >
                 <Twitter className="w-5 h-5" />
               </a>
-              <a href="#" className="p-2 hover:bg-muted rounded-lg transition-colors">
+
+              {/* LinkedIn Link */}
+              <a 
+                href="https://www.linkedin.com/in/pratibha-agrawal-023005381?utm_source=share_via&utm_content=profile&utm_medium=member_android" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 hover:bg-muted hover:text-primary rounded-lg transition-colors"
+                title="Connect on LinkedIn"
+              >
                 <Linkedin className="w-5 h-5" />
               </a>
-              <a href="#" className="p-2 hover:bg-muted rounded-lg transition-colors">
+
+              {/* Email Link */}
+              <a 
+                href="mailto:saathi045@gmail.com" 
+                className="p-2 hover:bg-muted hover:text-primary rounded-lg transition-colors"
+                title="Send us an email"
+              >
                 <Mail className="w-5 h-5" />
               </a>
             </div>
