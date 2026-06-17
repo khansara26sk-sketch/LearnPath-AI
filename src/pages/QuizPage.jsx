@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft,
@@ -16,26 +16,31 @@ const API_BASE = 'http://127.0.0.1:8000/api/v1'
 
 export default function QuizPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user } = useAuth()
 
   const userId = user?.uid || user?.email || 'guest'
 
   const generatedQuiz = location.state?.generatedQuiz || null
+  const customTimeLimitSeconds = location.state?.timeLimit ? location.state.timeLimit * 60 : null
 
   const [topic, setTopic] = useState('')
   const [difficulty, setDifficulty] = useState('Medium')
   const [questionCount, setQuestionCount] = useState(10)
-  const [studentClass, setStudentClass] = useState('College / University') // Naya state class ke liye
+  const [studentClass, setStudentClass] = useState('College / University') 
+  
+  // 🔥 NAYA STATE: Direct Quiz Generate karne wale timer ke liye
+  const [timerSelection, setTimerSelection] = useState(10)
+
   const [quizData, setQuizData] = useState([])
   const [quizTitle, setQuizTitle] = useState(generatedQuiz?.title || '')
   const [loadingQuiz, setLoadingQuiz] = useState(false)
 
-  const activeQuiz =
-    generatedQuiz?.questions?.length > 0 ? generatedQuiz.questions : quizData
-
+  const activeQuiz = generatedQuiz?.questions?.length > 0 ? generatedQuiz.questions : quizData
   const finalQuizTitle = generatedQuiz?.title || quizTitle || 'AI Generated Quiz'
 
-  const quizDuration = activeQuiz.length * 60
+  // 🔥 TIMER LOGIC: Agar PDF page se aaya hai toh customTimeLimit, warna hamara naya timerSelection
+  const quizDuration = customTimeLimitSeconds || (timerSelection * 60)
 
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState({})
@@ -43,11 +48,13 @@ export default function QuizPage() {
   const [timeRemaining, setTimeRemaining] = useState(quizDuration)
 
   useEffect(() => {
-    setCurrentQuestion(0)
-    setSelectedAnswers({})
-    setShowResults(false)
-    setTimeRemaining(quizDuration)
-  }, [generatedQuiz, quizData, quizDuration])
+    if (activeQuiz.length > 0) {
+      setCurrentQuestion(0)
+      setSelectedAnswers({})
+      setShowResults(false)
+      setTimeRemaining(quizDuration)
+    }
+  }, [generatedQuiz, quizData, quizDuration, activeQuiz.length])
 
   useEffect(() => {
     if (showResults || activeQuiz.length === 0) return
@@ -55,12 +62,14 @@ export default function QuizPage() {
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
+          clearInterval(interval)
           handleSubmit()
           return 0
         }
         return prev - 1
       })
     }, 1000)
+    
     return () => clearInterval(interval)
   }, [showResults, activeQuiz.length])
 
@@ -114,7 +123,7 @@ export default function QuizPage() {
         },
         body: JSON.stringify({
           user_id: userId,
-          class_name: studentClass, // Naya variable API mein bheja
+          class_name: studentClass,
           topic,
           difficulty,
           count: Number(questionCount),
@@ -244,7 +253,6 @@ export default function QuizPage() {
           </div>
 
           <div className="space-y-5">
-            {/* Naya Class/Education Level Dropdown */}
             <div>
               <label className="text-sm font-semibold mb-2 flex items-center gap-2">
                 <GraduationCap className="w-4 h-4 text-primary" />
@@ -274,7 +282,8 @@ export default function QuizPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* 🔥 NAYA UI: Timer ko grid mein add kar diya */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-semibold mb-2 block">Difficulty</label>
                 <select
@@ -299,6 +308,22 @@ export default function QuizPage() {
                   <option value={10}>10 Questions</option>
                   <option value={15}>15 Questions</option>
                   <option value={20}>20 Questions</option>
+                </select>
+              </div>
+
+              {/* Timer Dropdown */}
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Timer (Mins)</label>
+                <select
+                  value={timerSelection}
+                  onChange={(e) => setTimerSelection(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl bg-card border border-border focus:border-primary outline-none"
+                >
+                  <option value={5}>5 Minutes</option>
+                  <option value={10}>10 Minutes</option>
+                  <option value={15}>15 Minutes</option>
+                  <option value={20}>20 Minutes</option>
+                  <option value={30}>30 Minutes</option>
                 </select>
               </div>
             </div>
@@ -409,7 +434,7 @@ export default function QuizPage() {
 
             <div className="flex gap-4">
               <button
-                onClick={() => (window.location.href = '/dashboard')}
+                onClick={() => navigate('/dashboard')}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-xl transition-all"
               >
                 View Dashboard
@@ -444,8 +469,8 @@ export default function QuizPage() {
                 <p className="text-xs text-muted-foreground mt-1">{finalQuizTitle}</p>
               </div>
 
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="w-4 h-4 text-cyan-500" />
+              <div className="flex items-center gap-2 text-sm font-semibold bg-card px-3 py-1.5 rounded-full border border-border shadow-sm">
+                <Clock className={`w-4 h-4 ${timeRemaining < 60 ? 'text-red-500 animate-pulse' : 'text-cyan-500'}`} />
                 <span className={timeRemaining < 60 ? 'text-red-500' : 'text-foreground'}>
                   {formatTime(timeRemaining)}
                 </span>

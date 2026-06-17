@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # --- Load Environment Variables ---
-# Isse ensure karo ki load_dotenv path sahi hai
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 from fastapi import FastAPI
@@ -27,13 +26,21 @@ from app.database.connection import (
 from app.routes import chat, quiz, roadmap, pdf_tools, dashboard
 from app.services.groq_service import GroqService
 
-# --- Request Model ---
+# 🔥 NAYA IMPORT: Apni email service ko yahan import kiya
+from app.services.email_service import send_login_alert_email
+
+# --- Request Models ---
 class QuizRequest(BaseModel):
     class_name: str = Field(..., alias="class")
     subject: str
     topic: str
     count: int
     model_config = ConfigDict(populate_by_name=True)
+
+# 🔥 NAYA MODEL: Login Email data receive karne ke liye
+class LoginAlertRequest(BaseModel):
+    email: str
+    name: str
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -79,6 +86,12 @@ def create_app() -> FastAPI:
         prompt = f"Generate {req.count} MCQs for a {req.class_name} student on topic '{req.topic}' in subject '{req.subject}'. Return JSON with key 'questions' containing list of objects (question, options, correct index)."
         questions = await service.generate_questions(prompt)
         return {"questions": questions}
+
+    # 🔥 NAYA ROUTE: Login Alert Email bhejane wala endpoint
+    @app.post(f"{settings.api_prefix}/auth/login-alert")
+    async def trigger_login_alert(req: LoginAlertRequest):
+        success = send_login_alert_email(req.email, req.name)
+        return {"success": success, "message": "Alert sent"}
 
     app.include_router(quiz.router, prefix=settings.api_prefix)
     app.include_router(roadmap.router, prefix=settings.api_prefix)

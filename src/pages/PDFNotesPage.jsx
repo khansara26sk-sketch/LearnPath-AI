@@ -25,17 +25,18 @@ export default function PDFNotesPage() {
   const [loading, setLoading] = useState(false)
   const [isTraining, setIsTraining] = useState(false)
   
-  // 🔥 NAYA STATE: History save karne ke liye
+  // 🔥 NAYA STATE: Quiz ke timer ke liye (default 10 minutes)
+  const [quizTimer, setQuizTimer] = useState(10) 
+
+  // History states
   const [history, setHistory] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  // 🔥 NAYA FUNCTION: Page khulte hi history fetch karne ke liye
   const fetchHistory = async () => {
     if (userId === 'guest') return;
     
     try {
       setLoadingHistory(true)
-      // Hum assume kar rahe hain ki backend par yeh rasta hoga
       const response = await fetch(`${API_BASE}/pdf/history/${userId}`)
       if (response.ok) {
         const data = await response.json()
@@ -48,7 +49,6 @@ export default function PDFNotesPage() {
     }
   }
 
-  // Page load hote hi history fetch karo
   useEffect(() => {
     fetchHistory()
   }, [userId])
@@ -67,7 +67,7 @@ export default function PDFNotesPage() {
       })
       if (response.ok) {
         alert('AI successfully trained on this PDF!')
-        await fetchHistory() // 🔄 Training ke baad history update karo
+        await fetchHistory() 
       } else {
         alert('Failed to train AI.')
       }
@@ -96,17 +96,23 @@ export default function PDFNotesPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('user_id', userId) // backend tracking ke liye
+      formData.append('user_id', userId)
 
       const response = await fetch(`${API_BASE}/pdf/${type}`, { method: 'POST', body: formData })
       const data = await response.json()
 
       if (type === 'quiz') {
-        navigate('/quiz', { state: { generatedQuiz: { title: file.name, questions: data.questions || [] } } })
+        // 🔥 UPDATE: Yahan hum timer ka data quiz page ko bhej rahe hain
+        navigate('/quiz', { 
+          state: { 
+            generatedQuiz: { title: file.name, questions: data.questions || [] },
+            timeLimit: quizTimer // <-- Naya data
+          } 
+        })
         return
       }
       setResult(data.summary || data.notes || data.flashcards || 'No result generated.')
-      await fetchHistory() // 🔄 Generate hone ke baad history update karo
+      await fetchHistory() 
     } catch (error) {
       setResult('Failed to generate result.')
     } finally {
@@ -114,7 +120,6 @@ export default function PDFNotesPage() {
     }
   }
 
-  // 🔥 NAYA FUNCTION: History item par click karne par result dikhane ke liye
   const loadHistoryItem = (item) => {
     setResult(item.content || item.summary || item.notes || "No content saved.")
   }
@@ -134,14 +139,30 @@ export default function PDFNotesPage() {
               <div className="space-y-3">
                 <button onClick={() => generate('summary')} className="w-full p-3 bg-muted hover:bg-muted/80 transition rounded-lg font-medium">Generate Summary</button>
                 <button onClick={() => generate('notes')} className="w-full p-3 bg-muted hover:bg-muted/80 transition rounded-lg font-medium">Generate Notes</button>
-                <button onClick={() => generate('quiz')} className="w-full p-3 bg-muted hover:bg-muted/80 transition rounded-lg font-medium">Generate Quiz</button>
+                
+                {/* 🔥 NAYA UI: Timer Select karne ka Dropdown */}
+                <div className="flex items-center justify-between gap-2 bg-muted p-2 rounded-lg mt-2">
+                  <label className="text-sm font-medium text-muted-foreground whitespace-nowrap pl-1">Quiz Timer:</label>
+                  <select 
+                    value={quizTimer} 
+                    onChange={(e) => setQuizTimer(Number(e.target.value))}
+                    className="w-1/2 p-2 bg-background border border-border rounded text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value={5}>5 Mins</option>
+                    <option value={10}>10 Mins</option>
+                    <option value={15}>15 Mins</option>
+                    <option value={30}>30 Mins</option>
+                  </select>
+                </div>
+
+                <button onClick={() => generate('quiz')} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white transition rounded-lg font-medium">Generate Quiz</button>
                 <button onClick={trainAI} disabled={isTraining || !file} className="w-full p-3 bg-teal-600 hover:bg-teal-700 text-white transition rounded-lg font-medium flex items-center justify-center gap-2">
                   {isTraining ? <><Loader2 className="w-4 h-4 animate-spin"/> Training...</> : <><Database className="w-4 h-4"/> Train AI on PDF</>}
                 </button>
               </div>
             </div>
 
-            {/* 🔥 NAYA UI: History Section */}
+            {/* History Section */}
             <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex-1">
               <h3 className="font-bold flex items-center gap-2 mb-4">
                 <History className="w-5 h-5 text-primary" />
