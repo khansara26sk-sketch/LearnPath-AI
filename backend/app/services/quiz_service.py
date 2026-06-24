@@ -476,6 +476,32 @@ Rules:
 
         except Exception as exc:
             print("Failed to create auto roadmap from quiz:", exc)
+    async def get_quiz_history(self, user_id: str) -> dict:
+        try:
+            db = get_database()
+
+            cursor = (
+                db[self.collection_name]
+                .find({"user_id": user_id}, {"_id": 0})
+                .sort("created_at", -1)
+                .limit(20)
+            )
+
+            submissions = await cursor.to_list(length=20)
+
+            return {
+                "success": True,
+                "user_id": user_id,
+                "history": submissions,
+            }
+
+        except Exception as exc:
+            return {
+            "success": False,
+            "user_id": user_id,
+            "history": [],
+            "error": str(exc),
+        }
 
     async def submit_quiz(
         self,

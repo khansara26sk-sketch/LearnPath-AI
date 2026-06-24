@@ -1,20 +1,39 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from app.services.email_services import send_daily_motivation_email
+from app.services.email_service import send_daily_motivation_email
+from app.database.connection import get_database
 
-def job_send_daily_emails():
+async def job_send_daily_emails():
     print("\n⏰ RUNNING DAILY EMAIL SCHEDULER...")
-    
-    # Yahan hum apne database se un sabhi bacho ki list nikalenge jinhone roadmap banaya hai
-    # Aur un sab par ek for loop laga kar unhe mail bhejenge
-    
-    print("✅ All daily emails processed!\n")
 
-# Yeh humara main scheduler object hai
+    try:
+        db = get_database()
+
+        users = await db.roadmaps.distinct("user_email")
+
+        for email in users:
+            try:
+                await send_daily_motivation_email(email)
+
+                print(f"✅ Email sent to {email}")
+
+            except Exception as e:
+                print(f"❌ Failed for {email}: {e}")
+
+        print("✅ All daily emails processed!\n")
+
+    except Exception as e:
+        print(f"Scheduler Error: {e}")
+
 scheduler = AsyncIOScheduler()
 
 def start_scheduler():
-    # Abhi hum isko set karenge ki yeh har din subah 9:00 AM par chale
-    # Testing ke liye hum isko 'har 1 minute' par bhi set kar sakte hain
-    scheduler.add_job(job_send_daily_emails, 'cron', hour=9, minute=0)
+    scheduler.add_job(
+        job_send_daily_emails,
+        "cron",
+        hour=9,
+        minute=0,
+    )
+
     scheduler.start()
+
     print("🚀 Background Email Scheduler Started!")

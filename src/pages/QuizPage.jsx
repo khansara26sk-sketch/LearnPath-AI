@@ -23,12 +23,21 @@ export default function QuizPage() {
 
   const generatedQuiz = location.state?.generatedQuiz || null
 
+  const customTimeLimitSeconds =
+    location.state?.customTimeLimitSeconds || null
+
   const [difficulty, setDifficulty] = useState('Medium')
   const [questionCount, setQuestionCount] = useState(10)
   const [studentClass, setStudentClass] = useState('College / University') 
   
   // 🔥 NAYA STATE: Direct Quiz Generate karne wale timer ke liye
   const [timerSelection, setTimerSelection] = useState(10)
+  const [topic, setTopic] = useState('')
+
+  const revisionQuizTopic =
+  JSON.parse(
+    localStorage.getItem("revision_topics") || "[]"
+  ).join(", ")
 
   const [quizData, setQuizData] = useState([])
   const [quizTitle, setQuizTitle] = useState(generatedQuiz?.title || '')
@@ -36,6 +45,7 @@ export default function QuizPage() {
 
   const activeQuiz = generatedQuiz?.questions?.length > 0 ? generatedQuiz.questions : quizData
   const finalQuizTitle = generatedQuiz?.title || quizTitle || 'AI Generated Quiz'
+  
 
   // 🔥 TIMER LOGIC: Agar PDF page se aaya hai toh customTimeLimit, warna hamara naya timerSelection
   const quizDuration = customTimeLimitSeconds || (timerSelection * 60)
@@ -44,6 +54,7 @@ export default function QuizPage() {
   const [selectedAnswers, setSelectedAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(quizDuration)
+  
 
   useEffect(() => {
     setCurrentQuestion(0)
@@ -68,6 +79,18 @@ export default function QuizPage() {
     
     return () => clearInterval(interval)
   }, [showResults, activeQuiz.length])
+  useEffect(() => {
+  const revisionMode =
+    location.state?.revisionMode
+
+  if (
+    revisionMode &&
+    revisionQuizTopic &&
+    activeQuiz.length === 0
+  ) {
+    generateRevisionQuiz()
+  }
+}, [])
 
   const normalizeQuestions = (questions) => {
     return questions
@@ -98,6 +121,23 @@ export default function QuizPage() {
           q.question && Array.isArray(q.options) && q.options.length === 4
       )
   }
+  const fetchQuizHistory = async () => {
+  if (userId === 'guest') return
+
+  try {
+    const response = await fetch(
+      `${API_BASE}/quiz-history/${userId}`
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      setQuizHistory(data.history || [])
+    }
+  } catch (error) {
+    console.error('Quiz history fetch failed:', error)
+  }
+}
 
   const generateQuiz = async () => {
     if (!topic.trim()) {
@@ -118,13 +158,13 @@ export default function QuizPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: userId,
-          class_name: studentClass,
-          topic,
-          difficulty,
-          count: Number(questionCount),
-          question_count: Number(questionCount),
-        }),
+  user_id: userId,
+  topic,
+  difficulty,
+  count: questionCount,
+  question_count: questionCount,
+  class_name: studentClass,
+}),
       })
 
       if (!response.ok) {
@@ -225,8 +265,14 @@ export default function QuizPage() {
         },
         body: JSON.stringify({
           user_id: userId,
-          subject: topic || finalQuizTitle || 'AI Quiz',
-          topic: topic || finalQuizTitle || 'AI Quiz',
+          subject:
+  revisionQuizTopic ||
+  topic ||
+  finalQuizTitle,
+          topic:
+  revisionQuizTopic ||
+  topic ||
+  finalQuizTitle,
           answers,
           time_taken_seconds: quizDuration - timeRemaining,
         }),
@@ -268,12 +314,21 @@ export default function QuizPage() {
   }
 
   const score = calculateScore()
+  const percentage =
+  activeQuiz.length > 0
+    ? Math.round(
+        (score /
+          activeQuiz.length) *
+          100
+      )
+    : 0
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
+  
 
   // View 1: Quiz Generation Screen (If no quiz is active)
   if (!activeQuiz || activeQuiz.length === 0) {
@@ -281,6 +336,9 @@ export default function QuizPage() {
       <div className="min-h-screen pt-24 pb-20 px-4 bg-background">
         <div className="max-w-2xl mx-auto glass-effect-strong p-8 rounded-3xl">
           <div className="text-center mb-8">
+            <div className="mb-6 flex justify-center">
+  
+</div>
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center">
               <Sparkles className="w-8 h-8 text-white" />
             </div>
@@ -384,7 +442,7 @@ export default function QuizPage() {
       </div>
     )
   }
-
+  
   // View 2: Detailed Results Screen
   if (showResults) {
     return (
@@ -405,6 +463,25 @@ export default function QuizPage() {
 
             <h1 className="text-4xl font-bold mb-2">Quiz Complete!</h1>
             <p className="text-muted-foreground mb-8">Here's your result for {finalQuizTitle}</p>
+            {revisionQuizTopic && (
+  <div
+    className={`mb-6 p-4 rounded-xl ${
+      percentage >= 70
+        ? 'bg-green-500/10 border border-green-500/20'
+        : 'bg-red-500/10 border border-red-500/20'
+    }`}
+  >
+    <p className="font-semibold">
+      {percentage >= 70
+        ? '🎉 Weak topics mastered!'
+        : '⚠ Revision still needed'}
+    </p>
+
+    <p className="text-sm text-muted-foreground mt-1">
+      Score: {percentage}%
+    </p>
+  </div>
+)}
 
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="bg-card rounded-xl p-4">
@@ -416,7 +493,7 @@ export default function QuizPage() {
 
               <div className="bg-card rounded-xl p-4">
                 <div className="text-3xl font-bold text-cyan-500">
-                  {Math.round((score / activeQuiz.length) * 100)}%
+                  {percentage}%
                 </div>
                 <p className="text-sm text-muted-foreground">Accuracy</p>
               </div>

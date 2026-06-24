@@ -319,6 +319,34 @@ export default function RoadmapPage() {
 
     return <Lock className="w-7 h-7 text-muted-foreground" />
   }
+  const deleteRoadmap = async (roadmapId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE}/generate-roadmap/${userId}/${roadmapId}`,
+      {
+        method: "DELETE",
+      }
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      await loadSavedRoadmaps()
+
+      if (
+        roadmap?.roadmap_id === roadmapId
+      ) {
+        setRoadmap(null)
+        setProgressData(null)
+      }
+
+      alert("Roadmap deleted successfully")
+    }
+  } catch (err) {
+    console.error(err)
+    alert("Failed to delete roadmap")
+  }
+}
 
   if (authLoading) {
     return (
@@ -358,25 +386,38 @@ export default function RoadmapPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {savedRoadmaps.map((item) => (
-                <button
-                  key={item.roadmap_id}
-                  onClick={() => openSavedRoadmap(item)}
-                  className={`text-left p-4 rounded-xl border transition ${
-                    roadmap?.roadmap_id === item.roadmap_id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <p className="font-semibold line-clamp-2">
-                    {item.title}
-                  </p>
+  <div
+    key={item.roadmap_id}
+    className={`p-4 rounded-xl border ${
+      roadmap?.roadmap_id === item.roadmap_id
+        ? 'border-primary bg-primary/10'
+        : 'border-border bg-card'
+    }`}
+  >
+    <button
+      onClick={() => openSavedRoadmap(item)}
+      className="w-full text-left"
+    >
+      <p className="font-semibold line-clamp-2">
+        {item.title}
+      </p>
 
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {item.purpose || 'Learning'} ·{' '}
-                    {item.milestones?.length || 0} weeks
-                  </p>
-                </button>
-              ))}
+      <p className="text-xs text-muted-foreground mt-2">
+        {item.purpose || 'Learning'} ·{' '}
+        {item.milestones?.length || 0} weeks
+      </p>
+    </button>
+
+    <button
+      onClick={() =>
+        deleteRoadmap(item.roadmap_id)
+      }
+      className="mt-3 w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+    >
+      Delete Roadmap
+    </button>
+  </div>
+))}
             </div>
           </div>
         )}

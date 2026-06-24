@@ -56,6 +56,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [quizHistory, setQuizHistory] = useState([])
 
   const fetchDashboard = async () => {
     if (!userId || userId === 'guest') return
@@ -89,12 +90,34 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+  const fetchQuizHistory = async () => {
+  try {
+    const response = await fetch(
+      `${API_BASE}/quiz-history/${userId}`
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      setQuizHistory(data.history || [])
+    }
+  } catch (error) {
+    console.error(
+      'Quiz history error:',
+      error
+    )
+  }
+}
 
   useEffect(() => {
-    if (!authLoading && userId !== 'guest') {
-      fetchDashboard()
-    }
-  }, [authLoading, userId])
+  if (
+    !authLoading &&
+    userId !== 'guest'
+  ) {
+    fetchDashboard()
+    fetchQuizHistory()
+  }
+}, [authLoading, userId])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
@@ -818,6 +841,57 @@ export default function Dashboard() {
                 })}
               </div>
             </motion.div>
+            <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  className="glass-effect p-6 rounded-xl"
+>
+  <h3 className="text-lg font-semibold mb-5">
+    Recent Quiz History
+  </h3>
+
+  {quizHistory.length > 0 ? (
+    <div className="space-y-3">
+      {quizHistory
+        .slice(0, 5)
+        .map((quiz, index) => (
+          <div
+            key={index}
+            className="bg-card border border-border rounded-lg p-4"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="font-semibold">
+                  {quiz.topic}
+                </h4>
+
+                <p className="text-xs text-muted-foreground">
+                  {new Date(
+                    quiz.created_at
+                  ).toLocaleDateString()}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-primary font-bold">
+                  {quiz.score}%
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  {quiz.correct_answers}/
+                  {quiz.total_questions}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+    </div>
+  ) : (
+    <p className="text-muted-foreground">
+      No quizzes attempted yet.
+    </p>
+  )}
+</motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}

@@ -18,9 +18,6 @@ async def submit_quiz(
     payload: QuizSubmissionRequest,
     service: QuizService = Depends(get_quiz_service),
 ) -> QuizSubmissionResponse:
-    """
-    Submit quiz answers and analyze performance.
-    """
     return await service.submit_quiz(payload)
 
 
@@ -29,18 +26,6 @@ async def generate_quiz(
     payload: dict,
     service: QuizService = Depends(get_quiz_service),
 ):
-    """
-    Generate AI Quiz.
-
-    Example:
-    {
-      "topic": "Python",
-      "difficulty": "Medium",
-      "count": 10,
-      "class_name": "College / University"
-    }
-    """
-
     topic = payload.get("topic")
 
     count = (
@@ -49,15 +34,13 @@ async def generate_quiz(
         or 10
     )
 
-    difficulty = payload.get(
-        "difficulty",
-        "Medium",
-    )
-    
-    # Naya line: Frontend se class_name nikalna (default to College)
-    class_name = payload.get("class_name", "College / University")
+    difficulty = payload.get("difficulty", "Medium")
 
-    # Naya line: class_name ko service mein pass karna
+    class_name = payload.get(
+        "class_name",
+        "College / University",
+    )
+
     return await service.generate_topic_quiz(
         topic=topic,
         count=count,
@@ -71,15 +54,12 @@ async def generate_quiz_from_roadmap(
     payload: dict,
     service: QuizService = Depends(get_quiz_service),
 ):
-    """
-    Generate quiz from roadmap week.
-
-    Example:
-    {
-      "week": 3,
-      "topic": "Genetics",
-      "goal": "NEET Biology",
-      "count": 15
-    }
-    """
     return await service.generate_roadmap_quiz(payload)
+
+
+@router.get("/quiz-history/{user_id}")
+async def get_quiz_history(
+    user_id: str,
+    service: QuizService = Depends(get_quiz_service),
+):
+    return await service.get_quiz_history(user_id)

@@ -9,7 +9,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ConfigDict
-
+from app.services.scheduler_service import start_scheduler
 # Debug: Print loaded env variables to verify (Security: remove this later)
 print(f"DEBUG: PINECONE_API_KEY from os.environ: {os.getenv('PINECONE_API_KEY')}")
 
