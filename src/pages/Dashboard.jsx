@@ -30,7 +30,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1'
+const API_BASE = 'https://learnpath-ai-49xp.onrender.com/api/v1'
 
 const fallbackProgressData = [
   { date: 'Mon', progress: 0 },

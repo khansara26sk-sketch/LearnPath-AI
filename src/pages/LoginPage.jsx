@@ -9,6 +9,7 @@ export default function LoginPage({ mode = 'login' }) {
   const { user, loginWithGoogle, authLoading } = useAuth()
 
   const isSignup = mode === 'signup'
+  const API_BASE = 'https://learnpath-ai-49xp.onrender.com/api/v1'
 
   useEffect(() => {
     if (user) {
@@ -29,7 +30,7 @@ export default function LoginPage({ mode = 'login' }) {
 
         if (userEmail) {
           // Backend API ko hit karna
-          await fetch('http://127.0.0.1:8000/api/v1/auth/login-alert', {
+          await fetch(`${API_BASE}/auth/login-alert`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: userEmail, name: userName })
