@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 from typing import Any
 
-from app.services.rag_service import RAGService
+#from app.services.rag_service import RAGService
 from app.core.dependencies import get_pdf_service
 from app.services.pdf_service import PDFService
 from app.database.connection import get_database
@@ -134,10 +134,10 @@ async def pdf_quiz(
 # ==========================================
 # AI TRAINING (RAG) ENDPOINT
 # ==========================================
-@router.post("/learn-pdf")
-async def learn_from_pdf(
-    user_id: str = Form(...), 
-    file: UploadFile = File(...)
-):
-    rag = RAGService()
-    return await rag.process_and_store_pdf(file, user_id)
+# @router.post("/learn-pdf")
+# async def learn_from_pdf(
+#     user_id: str = Form(...), 
+#     file: UploadFile = File(...)
+# ):
+#     rag = RAGService()
+#     return await rag.process_and_store_pdf(file, user_id)
