@@ -44,37 +44,10 @@ export function AuthProvider({ children }) {
     return () => unsubscribe()
   }, [])
 
-  const loginWithGoogle = async (mode = 'login') => {
-    const result = await signInWithPopup(auth, googleProvider)
-    const email = result.user?.email
-
-    if (!email) {
-      await signOut(auth)
-      throw new Error('NO_EMAIL_FOUND')
-    }
-
-    if (mode === 'signup') {
-      saveRegisteredUser(email)
-      return result
-    }
-
-    if (mode === 'login') {
-      const registered = isRegisteredUser(email)
-
-      if (!registered) {
-        try {
-          await deleteUser(result.user)
-        } catch (error) {
-          console.warn('Could not delete Firebase user:', error)
-        }
-
-        await signOut(auth)
-        throw new Error('NO_ACCOUNT_FOUND')
-      }
-    }
-
-    return result
-  }
+  const loginWithGoogle = async () => {
+  const result = await signInWithPopup(auth, googleProvider)
+  return result
+}
 
   const logout = async () => {
     await signOut(auth)
