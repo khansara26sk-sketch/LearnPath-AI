@@ -110,14 +110,16 @@ export default function Dashboard() {
 }
 
   useEffect(() => {
-  if (
-    !authLoading &&
-    userId !== 'guest'
-  ) {
-    fetchDashboard()
-    fetchQuizHistory()
+  if (authLoading) return
+
+  if (!user || userId === 'guest') {
+    setLoading(false)
+    return
   }
-}, [authLoading, userId])
+
+  fetchDashboard()
+  fetchQuizHistory()
+}, [authLoading, user, userId])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
@@ -317,14 +319,14 @@ export default function Dashboard() {
     })
   }
 
-  if (authLoading || loading) {
-    return (
-      <div className="pt-24 min-h-screen flex flex-col items-center justify-center text-muted-foreground">
-        <Loader2 className="w-10 h-10 animate-spin mb-4 text-primary" />
-        Loading live dashboard...
-      </div>
-    )
-  }
+  if (loading) {
+  return (
+    <div className="pt-24 min-h-screen flex flex-col items-center justify-center text-muted-foreground">
+      <Loader2 className="w-10 h-10 animate-spin mb-4 text-primary" />
+      Loading live dashboard...
+    </div>
+  )
+}
 
   return (
     <div className="pt-16 min-h-screen bg-background">
