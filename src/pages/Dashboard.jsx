@@ -59,37 +59,29 @@ export default function Dashboard() {
   const [quizHistory, setQuizHistory] = useState([])
 
   const fetchDashboard = async () => {
-    if (!userId || userId === 'guest') return
-
-    try {
-      setLoading(true)
-
-      const response = await fetch(`${API_BASE}/dashboard/${userId}`)
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard')
-      }
-
-      const data = await response.json()
-      console.log('Dashboard API:', data)
-
-      setDashboardData(data)
-    } catch (error) {
-      console.error('Dashboard fetch error:', error)
-
-      setDashboardData({
-        success: false,
-        user_id: userId,
-        quizzes_taken: 0,
-        roadmaps_created: 0,
-        completed_weeks: 0,
-        weak_topics: [],
-        needs_revision_count: 0,
-      })
-    } finally {
-      setLoading(false)
-    }
+  if (!userId || userId === 'guest') {
+    setLoading(false)
+    return
   }
+
+  console.log("START FETCH")
+
+  try {
+    setLoading(true)
+
+    const response = await fetch(`${API_BASE}/dashboard/${userId}`)
+    const data = await response.json()
+
+    console.log("Dashboard API:", data)
+
+    setDashboardData(data)
+  } catch (error) {
+    console.error("Dashboard fetch error:", error)
+  } finally {
+    console.log("SETTING FALSE")
+    setLoading(false)
+  }
+}
   const fetchQuizHistory = async () => {
   try {
     const response = await fetch(
@@ -119,7 +111,7 @@ export default function Dashboard() {
 
   fetchDashboard()
   fetchQuizHistory()
-}, [authLoading, user, userId])
+}, [authLoading, userId])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
@@ -318,7 +310,7 @@ export default function Dashboard() {
       },
     })
   }
-
+  
   if (loading) {
   return (
     <div className="pt-24 min-h-screen flex flex-col items-center justify-center text-muted-foreground">
