@@ -121,7 +121,7 @@ export default function Dashboard() {
 
   fetchDashboard()
   fetchQuizHistory()
-}, [authLoading, userId])
+}, [authLoading, user, userId])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0

@@ -15,9 +15,9 @@ import QuizPage from './pages/QuizPage'
 import AITutorPage from './pages/AITutorPage'
 import RoadmapPage from './pages/RoadmapPage'
 import PDFNotesPage from './pages/PDFNotesPage'
+import LoginPage from './pages/LoginPage'
 
 import { useAuth } from './context/AuthContext'
-import LoginPage from './pages/LoginPage'
 
 function ProtectedRoute({ children }) {
   const { user, authLoading } = useAuth()
@@ -43,9 +43,7 @@ function App() {
       setIsDarkMode(savedTheme === 'dark')
     } else {
       setIsDarkMode(
-        window.matchMedia(
-          '(prefers-color-scheme: dark)'
-        ).matches
+        window.matchMedia('(prefers-color-scheme: dark)').matches
       )
     }
   }, [])
@@ -74,6 +72,7 @@ function App() {
 
         <main className="flex-grow">
           <Routes>
+            {/* Public Routes */}
             <Route
               path="/"
               element={<LandingPage />}
@@ -81,9 +80,15 @@ function App() {
 
             <Route
               path="/login"
-              element={<LoginPage />}
+              element={<LoginPage mode="login" />}
             />
 
+            <Route
+              path="/signup"
+              element={<LoginPage mode="signup" />}
+            />
+
+            {/* Protected Routes */}
             <Route
               path="/dashboard"
               element={
@@ -128,14 +133,12 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Catch All */}
             <Route
-  path="/signup"
-  element={<LoginPage mode="signup" />}
-/>
-<Route
-  path="/login"
-  element={<LoginPage mode="login" />}
-/>
+              path="*"
+              element={<Navigate to="/" replace />}
+            />
           </Routes>
         </main>
 
