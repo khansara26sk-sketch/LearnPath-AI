@@ -66,18 +66,34 @@ export default function Dashboard() {
 
   console.log("START FETCH")
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 12000)
+
   try {
     setLoading(true)
 
-    const response = await fetch(`${API_BASE}/dashboard/${userId}`)
-    const data = await response.json()
+    const response = await fetch(`${API_BASE}/dashboard/${userId}`, {
+      signal: controller.signal,
+    })
 
+    const data = await response.json()
     console.log("Dashboard API:", data)
 
     setDashboardData(data)
   } catch (error) {
     console.error("Dashboard fetch error:", error)
+
+    setDashboardData({
+      success: false,
+      user_id: userId,
+      quizzes_taken: 0,
+      roadmaps_created: 0,
+      completed_weeks: 0,
+      weak_topics: [],
+      needs_revision_count: 0,
+    })
   } finally {
+    clearTimeout(timeoutId)
     console.log("SETTING FALSE")
     setLoading(false)
   }
