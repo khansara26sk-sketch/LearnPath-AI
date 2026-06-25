@@ -66,15 +66,10 @@ export default function Dashboard() {
 
   console.log("START FETCH")
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 12000)
-
   try {
     setLoading(true)
 
-    const response = await fetch(`${API_BASE}/dashboard/${userId}`, {
-      signal: controller.signal,
-    })
+    const response = await fetch(`${API_BASE}/dashboard/${userId}`)
 
     const data = await response.json()
     console.log("Dashboard API:", data)
@@ -93,7 +88,6 @@ export default function Dashboard() {
       needs_revision_count: 0,
     })
   } finally {
-    clearTimeout(timeoutId)
     console.log("SETTING FALSE")
     setLoading(false)
   }
