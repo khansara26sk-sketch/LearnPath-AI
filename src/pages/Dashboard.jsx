@@ -70,14 +70,20 @@ export default function Dashboard() {
     setLoading(true)
 
     const response = await fetch(`${API_BASE}/dashboard/${userId}`)
+    
+    // 1. Check if the server responded with a non-200 status code (like 404)
+    if (!response.ok) {
+      throw new Error(`Server responded with status: ${response.status}`)
+    }
 
     const data = await response.json()
     console.log("Dashboard API:", data)
-
     setDashboardData(data)
+
   } catch (error) {
     console.error("Dashboard fetch error:", error)
 
+    // Fallback UI data safe-state
     setDashboardData({
       success: false,
       user_id: userId,
@@ -89,7 +95,7 @@ export default function Dashboard() {
     })
   } finally {
     console.log("SETTING FALSE")
-    setLoading(false)
+    setLoading(false) // This is now guaranteed to safely execute 
   }
 }
   const fetchQuizHistory = async () => {
