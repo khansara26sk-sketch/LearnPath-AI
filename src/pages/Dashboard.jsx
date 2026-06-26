@@ -59,31 +59,49 @@ export default function Dashboard() {
   const [quizHistory, setQuizHistory] = useState([])
 
   const fetchDashboard = async () => {
+  // 1. Guard clause: Ensure we have a valid user ID and it's not a guest
   if (!userId || userId === 'guest') {
-    setLoading(false)
-    return
+    console.log("No valid user ID found or guest user. Skipping fetch.");
+    setLoading(false);
+    return;
   }
 
-  console.log("START FETCH")
+  console.log("START FETCH");
+  
+  // 2. Set up an AbortController to handle server hangs/timeouts
+  const controller = new AbortController();
+  // If the server doesn't respond within 10 seconds, cancel the request
+  const timeoutId = setTimeout(() => {
+    console.warn("Backend took too long to respond. Aborting request.");
+    controller.abort();
+  }, 10000); 
 
   try {
-    setLoading(true)
+    setLoading(true);
 
-    const response = await fetch(`${API_BASE}/dashboard/${userId}`)
-    
-    // 1. Check if the server responded with a non-200 status code (like 404)
+    // 3. Make the API call with the abort signal attached
+    const response = await fetch(`${API_BASE}/dashboard/${userId}`, {
+      signal: controller.signal
+    });
+
+    // Clear the timeout if the server responded in time
+    clearTimeout(timeoutId);
+
+    // 4. Check if the server returned an error status (e.g., 404, 500)
     if (!response.ok) {
-      throw new Error(`Server responded with status: ${response.status}`)
+      throw new Error(`Server returned status: ${response.status}`);
     }
 
-    const data = await response.json()
-    console.log("Dashboard API:", data)
-    setDashboardData(data)
+    // 5. Parse and apply the successful data
+    const data = await response.json();
+    console.log("Dashboard API Response:", data);
+    setDashboardData(data);
 
   } catch (error) {
-    console.error("Dashboard fetch error:", error)
-
-    // Fallback UI data safe-state
+    // This block catches network errors, backend crashes, AND our 10-second timeout
+    console.error("Dashboard fetch failed or timed out:", error);
+    
+    // 6. Fallback State: Provide a safe blank slate so the UI doesn't break
     setDashboardData({
       success: false,
       user_id: userId,
@@ -92,12 +110,13 @@ export default function Dashboard() {
       completed_weeks: 0,
       weak_topics: [],
       needs_revision_count: 0,
-    })
+    });
   } finally {
-    console.log("SETTING FALSE")
-    setLoading(false) // This is now guaranteed to safely execute 
+    // 7. Always turn off the loading spinner, no matter what happens
+    console.log("SETTING FALSE");
+    setLoading(false);
   }
-}
+};
   const fetchQuizHistory = async () => {
   try {
     const response = await fetch(
