@@ -24,10 +24,12 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = (
-        "http://localhost:5173,"
-        "http://localhost:3000,"
-        "http://localhost:3001"
-    )
+    "http://localhost:5173,"
+    "http://localhost:3000,"
+    "http://localhost:3001,"
+    "https://learn-path-66yldz9xq-khansara26sk-sketchs-projects.vercel.app,"
+    "https://learn-path-h1il3m0ht-khansara26sk-sketchs-projects.vercel.app"
+)
 
     # MongoDB
     mongodb_uri: str = "mongodb://localhost:27017"

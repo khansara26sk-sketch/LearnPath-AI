@@ -59,25 +59,17 @@ export default function Dashboard() {
   const [quizHistory, setQuizHistory] = useState([])
 
   const fetchDashboard = async () => {
-  if (!userId || userId === 'guest') {
+  if (!user?.uid) {
     setLoading(false)
     return
   }
 
   console.log("START FETCH")
-  
-  // Create an abort controller to handle server timeouts
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second limit
 
   try {
     setLoading(true)
 
-    const response = await fetch(`${API_BASE}/dashboard/${userId}`, {
-      signal: controller.signal
-    })
-
-    clearTimeout(timeoutId) // Clear timeout if server responds in time
+    const response = await fetch(`${API_BASE}/dashboard/${user.uid}`)
 
     if (!response.ok) {
       throw new Error(`Server status error: ${response.status}`)
@@ -86,29 +78,20 @@ export default function Dashboard() {
     const data = await response.json()
     console.log("Dashboard API:", data)
     setDashboardData(data)
-
   } catch (error) {
-    console.error("Dashboard fetch error or timeout:", error)
-    
-    // Load safe empty states if backend fails or hangs
-    setDashboardData({
-      success: false,
-      user_id: userId,
-      quizzes_taken: 0,
-      roadmaps_created: 0,
-      completed_weeks: 0,
-      weak_topics: [],
-      needs_revision_count: 0,
-    })
+    console.error("Dashboard fetch error:", error)
   } finally {
     console.log("SETTING FALSE")
     setLoading(false)
   }
 }
-  const fetchQuizHistory = async () => {
+
+const fetchQuizHistory = async () => {
+  if (!user?.uid) return
+
   try {
     const response = await fetch(
-      `${API_BASE}/quiz-history/${userId}`
+      `${API_BASE}/quiz-history/${user.uid}`
     )
 
     const data = await response.json()
@@ -117,24 +100,21 @@ export default function Dashboard() {
       setQuizHistory(data.history || [])
     }
   } catch (error) {
-    console.error(
-      'Quiz history error:',
-      error
-    )
+    console.error("Quiz history error:", error)
   }
 }
 
-  useEffect(() => {
+useEffect(() => {
   if (authLoading) return
 
-  if (!user || userId === 'guest') {
+  if (!user?.uid) {
     setLoading(false)
     return
   }
 
   fetchDashboard()
   fetchQuizHistory()
-}, [authLoading, user, userId])
+}, [authLoading, user?.uid])
 
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
