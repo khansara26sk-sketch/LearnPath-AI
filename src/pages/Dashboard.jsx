@@ -31,7 +31,6 @@ import {
 } from 'lucide-react'
 
 const API_BASE = 'https://learnpath-ai-49xp.onrender.com/api/v1'
-
 const fallbackProgressData = [
   { date: 'Mon', progress: 0 },
   { date: 'Tue', progress: 0 },
@@ -60,28 +59,36 @@ export default function Dashboard() {
 
   const fetchDashboard = async () => {
   if (!user?.uid) {
+    console.log("No user UID")
     setLoading(false)
     return
   }
 
-  console.log("START FETCH")
+  const dashboardUrl = `${API_BASE}/dashboard/${user.uid}`
+
+  console.log("START DASHBOARD FETCH")
+  console.log("Dashboard URL:", dashboardUrl)
 
   try {
     setLoading(true)
 
-    const response = await fetch(`${API_BASE}/dashboard/${user.uid}`)
+    const response = await fetch(dashboardUrl)
+
+    console.log("Dashboard status:", response.status)
 
     if (!response.ok) {
-      throw new Error(`Server status error: ${response.status}`)
+      throw new Error(`Dashboard error: ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("Dashboard API:", data)
+
+    console.log("Dashboard response received:", data)
+
     setDashboardData(data)
   } catch (error) {
     console.error("Dashboard fetch error:", error)
   } finally {
-    console.log("SETTING FALSE")
+    console.log("SETTING DASHBOARD LOADING FALSE")
     setLoading(false)
   }
 }
@@ -89,18 +96,38 @@ export default function Dashboard() {
 const fetchQuizHistory = async () => {
   if (!user?.uid) return
 
+  const historyUrl = `${API_BASE}/quiz-history/${user.uid}`
+
+  console.log("START QUIZ HISTORY FETCH")
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+
   try {
-    const response = await fetch(
-      `${API_BASE}/quiz-history/${user.uid}`
-    )
+    const response = await fetch(historyUrl, {
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeout)
+
+    console.log("Quiz History status:", response.status)
+
+    if (!response.ok) {
+      throw new Error(`Quiz history status ${response.status}`)
+    }
 
     const data = await response.json()
+
+    console.log("Quiz History response:", data)
 
     if (data.success) {
       setQuizHistory(data.history || [])
     }
-  } catch (error) {
-    console.error("Quiz history error:", error)
+  } catch (err) {
+    console.error("Quiz History Error:", err)
+  } finally {
+    clearTimeout(timeout)
+    console.log("Quiz History finished")
   }
 }
 
@@ -113,9 +140,7 @@ useEffect(() => {
   }
 
   fetchDashboard()
-  fetchQuizHistory()
 }, [authLoading, user?.uid])
-
   const quizzesTaken = dashboardData?.quizzes_taken || 0
   const roadmapsCreated = dashboardData?.roadmaps_created || 0
   const completedWeeks = dashboardData?.completed_weeks || 0
@@ -313,6 +338,7 @@ useEffect(() => {
       },
     })
   }
+  console.log("Current loading state:", loading)
   
   if (loading) {
   return (
